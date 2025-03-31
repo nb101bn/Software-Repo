@@ -107,8 +107,10 @@ def preload_data(Base_Path_Dir, cache_file='preloaded_data.parquet'):
     return preloaded_data
 
 base_dir = 'C:\\Users\\nathan\\Documents\\GitHub\\Software-Repo\\GraphingSoftware\\Datasets'
-all_data = preload_data(base_dir)
-#print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12'].keys())
+script_dir = os.path.dirname(__file__)
+Full_Dir = os.path.join(script_dir, 'Datasets')
+all_data = preload_data(Full_Dir)
+print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12.xlsx']['sheet_data'])
 def line_plot(data_to_plot, titlename, unittype, sheet_names, filter=None):
     max_data = []
     min_data = []
@@ -286,7 +288,7 @@ def double_variable_plot(notebook):
 
 def update_variables_two_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var):
     selected_run = run_var.get()
-    var1_menu['valeus'] = []
+    var1_menu['values'] = []
     var1_file_var.set('')
     var2_menu['values'] = []
     var2_file_var.set('')
@@ -326,10 +328,31 @@ def update_sheets(parent, run_var, file_var):
 
 def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame):
     selected_run = run_var.get()
-    selected_file_1 = var1_file_var
-    selected_file_2 = var2_file_var
-    plot_type_1 = var1_plot_type_var
-    plot_type_2 = var2_plot_type_var
+    selected_file_1 = var1_file_var.get()
+    selected_file_2 = var2_file_var.get()
+    plot_type_1 = var1_plot_type_var.get()
+    plot_type_2 = var2_plot_type_var.get()
+    if selected_run and selected_file_1 and selected_file_2 and selected_run in all_data and selected_file_1 in all_data[selected_run] and selected_file_2 in all_data[selected_run]:
+        data_to_plot_1 = all_data[selected_run][selected_file_1]
+        data_to_plot_2 = all_data[selected_run][selected_file_2]
+        sheet_names_1 = list(data_to_plot_1['sheet_order'])
+        sheet_names_2 = list(data_to_plot_2['sheet_order'])
+        for widget in plot_area_frame.winfo_children():
+            widget.destroy()
+        if plot_type_1 == 'line':
+            line_plot(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
+        elif plot_type_1 =='box':
+            Box_Whisker_preloaded(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
+        if plot_type_2 == 'line':
+            line_plot(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
+        elif plot_type_2 == 'box':
+            Box_Whisker_preloaded(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
+        canvas = FigureCanvasTkAgg(plt.gcf, master=plot_area_frame)
+        canvas_widget = canvas.get_tk_widget()
+        canvas_widget.pack()
+        canvas.draw()
+    else:
+        print('Error: Invalid selection')
 
 def generate_plot(parent, run_var, file_var, plot_type_var, plot_area_frame):
     selected_run = run_var.get()
@@ -338,11 +361,13 @@ def generate_plot(parent, run_var, file_var, plot_type_var, plot_area_frame):
 
     if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_run]:
         data_to_plot = all_data[selected_run][selected_file]
-        sheet_names = list(data_to_plot.keys())
+        sheet_names = list(data_to_plot['sheet_order'])
+        for widget in plot_area_frame.winfo_children():
+            widget.destroy()
         if plot_type == 'line':
-            line_plot(data_to_plot, f'{selected_run}-{selected_file}', 'units', sheet_names)
+            line_plot(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
         elif plot_type == 'box':
-            Box_Whisker_preloaded(data_to_plot, f'{selected_run}-{selected_file}', 'units', sheet_names)
+            Box_Whisker_preloaded(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
         
         canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
         canvas_widget = canvas.get_tk_widget() 
