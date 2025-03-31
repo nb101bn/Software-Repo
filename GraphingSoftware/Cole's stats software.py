@@ -4,7 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import matplotlib.backends.backend_tkagg as FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import pickle
 #root = tk.Tk()
 #root.title("Window")
 #root.geometry("400x300")
@@ -31,7 +32,7 @@ plt.xlabel('sheet names')
 plt.xticks(range(1, len(excel_file.sheet_names)+1), excel_file.sheet_names, rotation=45)
 plt.show()
 '''
-def preload_data(Base_Path_Dir):
+def preload_data_1(Base_Path_Dir):
     preloaded_data = {}
     for run_folder in os.listdir(Base_Path_Dir):
         run_path = os.path.join(Base_Path_Dir, run_folder)
@@ -40,14 +41,16 @@ def preload_data(Base_Path_Dir):
             for filename in os.listdir(run_path):
                 if filename.endswith('.xlsx'):
                     file_path = os.path.join(run_path, filename)
-                    #preloaded_data[run_folder][filename] = {}
+                    preloaded_data[run_folder][filename] = {}
                     try:
                         excel_file = pd.ExcelFile(file_path)
                         sheet_data = {}
                         for sheet_name in excel_file.sheet_names:
-                            #df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
+                            df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
+                            print(f'sheet: {sheet_name}, DataFrame:\n{df}')
                             df = excel_file.parse(sheet_name, header=1)
                             data = df.to_numpy()
+                            print(f'sheet: {sheet_name}, Np Array:\n: {data}')
                             flattened_data = data.flatten()
                             sheet_data[sheet_name] = flattened_data
                         preloaded_data[run_folder][filename] = sheet_data
@@ -55,15 +58,63 @@ def preload_data(Base_Path_Dir):
                         print(f'Error loading data from {file_path}: {e}')
     return preloaded_data
 
-base_dir = 'C:\\Users\\natha\\Software\\GraphingSoftware\\Datasets'
+def preload_data(Base_Path_Dir, cache_file='preloaded_data.parquet'):
+    if os.path.exists(cache_file):
+        try:
+            return pd.read_parquet(cache_file).to_dict()
+        except Exception as e:
+            print(f'Error loading from parquet cache: {e}, attempting to lead from pickle cache.')
+            try:
+                with open('preloaded_data.pkl', 'rb') as f:
+                    return pickle.load(f)
+            except Exception as e2:
+                print(f"Error loading from pickle cache: {e2}. Re-loading from excel files.")
+    
+    preloaded_data = {}
+    for run_folder in os.listdir(Base_Path_Dir):
+        run_path = os.path.join(Base_Path_Dir, run_folder)
+        if os.path.isdir(run_path):
+            preloaded_data[run_folder] = {}
+            for filename in os.listdir(run_path):
+                if filename.endswith('.xlsx'):
+                    file_path = os.path.join(run_path, filename)
+                    print(f"Processing: {file_path}") #add print statement
+                    preloaded_data[run_folder][filename] = {'sheet_data': {}, 'sheet_order': []}
+                    try:
+                        excel_file = pd.ExcelFile(file_path)
+                        sheet_names = excel_file.sheet_names
+                        preloaded_data[run_folder][filename]['sheet_order'] = sheet_names
+                        for sheet_name in sheet_names:
+                            try:
+                                df = excel_file.parse(sheet_name, header=1)
+                                data = df.to_numpy()
+                                flattened_data = data.flatten()
+                                preloaded_data[run_folder][filename]['sheet_data'][sheet_name] = flattened_data
+                            except Exception as sheet_e:
+                                print(f"Error processing sheet {sheet_name} in {file_path}: {sheet_e}")
+                    except Exception as file_e:
+                        print(f"Error processing file {file_path}: {file_e}")
+
+    try:
+        pd.DataFrame(preloaded_data).to_parquet(cache_file)
+    except Exception as parquet_e:
+        print(f"Error saving to parquet cache: {parquet_e}")
+        try:
+            with open("preloaded_data.pkl", "wb") as f:
+                pickle.dump(preloaded_data, f)
+        except Exception as pickle_e:
+            print(f"Error saving to pickle cache: {pickle_e}")
+    return preloaded_data
+
+base_dir = 'C:\\Users\\nathan\\Documents\\GitHub\\Software-Repo\\GraphingSoftware\\Datasets'
 all_data = preload_data(base_dir)
-
-
+#print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12'].keys())
 def line_plot(data_to_plot, titlename, unittype, sheet_names, filter=None):
     max_data = []
     min_data = []
     x_positions = np.arange(len(sheet_names))
-    for sheet_name, flattened_data in data_to_plot.items():
+    for sheet_name in sheet_names:
+        flattened_data = data_to_plot[sheet_name]
         if filter is not None:
             filtered_data = flattened_data[flattened_data>=filter]
         else:
@@ -75,9 +126,10 @@ def line_plot(data_to_plot, titlename, unittype, sheet_names, filter=None):
             min_data.append(min_value)
         else:
             print(f'Warning: No data available for sheet: {sheet_name} after filtering')
-    if min_value:
-        plt.plot(x_positions, min_value, marker='o', linestyle='--', label='minimum')
-        plt.plot(x_positions, max_value, marker='s', linestyle='-', label = 'maximum')
+    if min_data:
+        plt.clf
+        plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum')
+        plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum')
         plt.title(titlename)
         plt.ylabel(unittype)
         plt.xlabel('time')
@@ -85,8 +137,6 @@ def line_plot(data_to_plot, titlename, unittype, sheet_names, filter=None):
         plt.legend()
     else:
         return print('Warning: No data to plot.')
-
-
 
 def Box_Whisker_preloaded(data_to_plot, titlename, unittype, sheet_names):
     all_data_list = list(data_to_plot.values())
@@ -106,7 +156,7 @@ def Box_Whisker_preloaded(data_to_plot, titlename, unittype, sheet_names):
         whisker_high = Q2+1.5*IQR
         whisker_highs.append(whisker_high)
         whisker_lows.append(whisker_low)
-    
+    plt.clf
     plt.boxplot(all_data_list, showfliers=False)
 
     for idx, (min_value, max_value) in enumerate(max_min_data):
@@ -192,7 +242,7 @@ def double_variable_plot(notebook):
     file_frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
 
     plot_type_frame = ttk.Label(tab, text='Plot Types')
-    plot_type_frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+    plot_type_frame.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
     
     plot_area_frame = ttk.Label(tab, text='Plot Display')
     plot_area_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
@@ -222,7 +272,7 @@ def double_variable_plot(notebook):
     var1_plot_type_var = tk.StringVar(value='line')
     var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
     var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-    var1_box_radio = tk.Radiobutton(plot_area_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
+    var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
     var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
     var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2')
@@ -289,7 +339,6 @@ def generate_plot(parent, run_var, file_var, plot_type_var, plot_area_frame):
     if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_run]:
         data_to_plot = all_data[selected_run][selected_file]
         sheet_names = list(data_to_plot.keys())
-        plt.clf()
         if plot_type == 'line':
             line_plot(data_to_plot, f'{selected_run}-{selected_file}', 'units', sheet_names)
         elif plot_type == 'box':
