@@ -237,16 +237,16 @@ def double_variable_plot(notebook):
     tab = ttk.Frame(notebook)
     notebook.add(tab, text='Two Variable Plots')
 
-    run_frame = ttk.Label(tab, text='Run')
+    run_frame = ttk.LabelFrame(tab, text='Run')
     run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
 
-    file_frame = ttk.Label(tab, text='Files')
+    file_frame = ttk.LabelFrame(tab, text='Files')
     file_frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
 
-    plot_type_frame = ttk.Label(tab, text='Plot Types')
+    plot_type_frame = ttk.LabelFrame(tab, text='Plot Types')
     plot_type_frame.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
     
-    plot_area_frame = ttk.Label(tab, text='Plot Display')
+    plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
     plot_area_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
     
     run_label = ttk.Label(run_frame, text='Select Run:')
@@ -284,6 +284,77 @@ def double_variable_plot(notebook):
     var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
     var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
     var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+
+    plot_button = ttk.Button(tab, text='Generate Plot',
+                              command= lambda: generate_plot_two_vars(tab, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame))
+    plot_button.grid(row=3, column=0, columnspan=2, padx=10, pady=10)
+
+def triple_variable_plot(notebook):
+    tab = ttk.Frame(notebook)
+    notebook.add(tab, text='Triple Variable Plots')
+
+    run_frame = ttk.LabelFrame(tab, text='Run Selection')
+    run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+
+    file_frame = ttk.LabelFrame(tab, text='File Selection')
+    file_frame.grid(row=1, column=0, columnspan=1, padx=10, pady=10, sticky='nsew')
+
+    plot_type_frame = ttk.LabelFrame(tab, text='Plot Type Selection')
+    plot_type_frame.grid(row=1, column=1, columnspan=1, padx=10, pady=10, sticky='nsew')
+
+    plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
+    plot_area_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+
+    run_label = ttk.Label(run_frame, text='Select Run:')
+    run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+    run_var = tk.StringVar(tab)
+    run_options = list(all_data.keys())
+    run_var.trace_add('write', lambda *args: update_variables_three_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var, var3_menu, var3_file_var))
+    run_menu = ttk.Combobox(run_frame, textvariable=run_var, values=run_options)
+    run_menu.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
+    
+    var1_label = ttk.Label(file_frame, text='Select File 1:')
+    var1_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+    var1_file_var = tk.StringVar(tab)
+    var1_menu = ttk.Combobox(file_frame, textvariable=var1_file_var, values=[])
+    var1_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+
+    var2_label = ttk.Label(file_frame, text='Select File 2:')
+    var2_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+    var2_file_var = tk.StringVar(tab)
+    var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
+    var2_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+
+    var3_label = ttk.Label(file_frame,text='Select File 3:')
+    var3_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+    var3_file_var = tk.StringVar(tab)
+    var3_menu = ttk.Combobox(file_frame, textvariable=var3_file_var, values=[])
+    var3_menu.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
+
+    var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1:')
+    var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+    var1_plot_type_var = tk.StringVar(value='line')
+    var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
+    var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+    var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
+    var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+
+    var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2:')
+    var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+    var2_plot_type_var = tk.StringVar(value='line')
+    var2_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
+    var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+    var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
+    var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+
+    var3_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 3:')
+    var3_plot_type_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+    var3_plot_type_var = tk.StringVar(value='line')
+    var3_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var3_plot_type_var, value='line')
+    var3_line_radio.grid(row=1, column=2, padx=5, pady=5, sticky='w')
+    var3_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var3_plot_type_var, value='box')
+    var3_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+    
 
 
 def update_variables_two_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var):
@@ -347,7 +418,7 @@ def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_p
             line_plot(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
         elif plot_type_2 == 'box':
             Box_Whisker_preloaded(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
-        canvas = FigureCanvasTkAgg(plt.gcf, master=plot_area_frame)
+        canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
         canvas_widget = canvas.get_tk_widget()
         canvas_widget.pack()
         canvas.draw()
@@ -384,6 +455,7 @@ notebook.pack(fill='both', expand=True)
 
 single_variable_plot(notebook)
 double_variable_plot(notebook)
+triple_variable_plot(notebook)
 
 root.mainloop()
 
