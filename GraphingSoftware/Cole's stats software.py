@@ -309,7 +309,7 @@ def triple_variable_plot(notebook):
     run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
     run_var = tk.StringVar(tab)
     run_options = list(all_data.keys())
-    run_var.trace_add('write', lambda *args: update_variables_three_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var, var3_menu, var3_file_var))
+    run_var.trace_add('write', lambda *args: update_variables_three_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var, var3_menu, var3_file_var))
     run_menu = ttk.Combobox(run_frame, textvariable=run_var, values=run_options)
     run_menu.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
     
