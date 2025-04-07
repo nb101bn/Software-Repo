@@ -155,7 +155,7 @@ def multiple_sation_plot(notebook):
         station_list = [menu.get() for menu in tab.station_menus] #get station list
         year_list = [int(menu.get()) for menu in tab.year_menus] #get year list
         month_list = [int(menu.get()) for menu in tab.month_menus] #get month list
-        day_list = [int(menu.get()) for menu in tab.month_menus] #get day list
+        day_list = [int(menu.get()) for menu in tab.day_menus] #get day list
         title_var = title_text.get() #get title
         generate_plot(station_list, year_list, month_list, day_list, title_var, plot_frame) #generate plot
 
