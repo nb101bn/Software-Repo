@@ -12,6 +12,7 @@ from tkinter import ttk
 from tkinter import filedialog
 import os
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import time
 
 def create_dataframes(station_ids, dates):
     """
@@ -26,17 +27,23 @@ def create_dataframes(station_ids, dates):
     """
     dataframes = {}  # Initialize an empty dictionary to store dataframes
     for i in range(len(station_ids)):  # Iterate through each station and date
-        try:
-            # Request data from Wyoming Upper Air service
-            df = WyomingUpperAir.request_data(dates[i], station_ids[i])
-            dataframes[i] = df  # Store the dataframe in the dictionary
-        except Exception as e:
-            # Handle any errors during data retrieval
-            print(f'Error fetching or processing data for {station_ids[i]} and date {dates[i]}: {e}')
-            dataframes[i] = None  # Store None if data retrieval fails
+        number_retries = 3
+        for retries in range(number_retries):
+            try:
+                # Request data from Wyoming Upper Air service
+                df = WyomingUpperAir.request_data(dates[i], station_ids[i])
+                dataframes[i] = df  # Store the dataframe in the dictionary
+            except Exception as e:
+                # Handle any errors during data retrieval
+                print(f'Attempt {retries+1} failed: {e}')
+                if retries < number_retries-1:
+                    time.sleep(5)
+                else:
+                    print(f'Error fetching or processing data for {station_ids[i]} and date {dates[i]}: {e}')
+                    dataframes[i] = None  # Store None if data retrieval fails
     return dataframes  # Return the dictionary of dataframes
 
-def create_skewt(data, stations, dates, title):
+def create_skewt(data, stations, dates, title, fig_size):
     """
     Creates and plots a Skew-T diagram from the given data.
 
@@ -47,7 +54,7 @@ def create_skewt(data, stations, dates, title):
         title (str): Title of the plot.
     """
     plt.clf  # Clear the current figure
-    fig = plt.figure(figsize=(9, 9))  # Create a new figure
+    fig = plt.figure(figsize=fig_size)  # Create a new figure
     skew = SkewT(fig, rotation=30)  # Initialize a Skew-T plot
 
     for i in range(len(stations)):  # Iterate through each station
@@ -116,7 +123,7 @@ def multiple_sation_plot(notebook):
     number_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # Options for number of plots
 
     tab = ttk.Frame(notebook)  # Create a new tab
-    notebook.add(tab, text='Comparison Diagrams')  # Add the tab to the notebook
+    notebook.add(tab, text='Observation Comparison Diagrams')  # Add the tab to the notebook
 
     control_frame = ttk.LabelFrame(tab, text='Number Selection')  # Frame for number selection
     control_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
@@ -147,6 +154,8 @@ def multiple_sation_plot(notebook):
     month.grid(row=0, column=3, padx=5, pady=5, sticky='w')
     day = ttk.Label(station_frame, text='Day:') #day label
     day.grid(row=0, column=4, padx=5, pady=5, sticky='w')
+    hour = ttk.Label(station_frame, text='Hour:')
+    hour.grid(row=0, column=5, padx=5, pady=5, sticky='w')
 
     def plot_button_command():
         """
@@ -156,13 +165,33 @@ def multiple_sation_plot(notebook):
         year_list = [int(menu.get()) for menu in tab.year_menus] #get year list
         month_list = [int(menu.get()) for menu in tab.month_menus] #get month list
         day_list = [int(menu.get()) for menu in tab.day_menus] #get day list
+        hour_list = [int(menu.get()) for menu in tab.hour_menus]
         title_var = title_text.get() #get title
-        generate_plot(station_list, year_list, month_list, day_list, title_var, plot_frame) #generate plot
+        generate_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame) #generate plot
 
     plot_button = ttk.Button(control_frame, text='Generate Plot', command=lambda: plot_button_command()) #create plot button
     plot_button.grid(row=0, column=2, padx=5, pady=5, sticky='w')
     save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_plot()) #create save button
     save_button.grid(row=1, column=2, padx=5, pady=5, sticky='w')
+
+def model_station_plots(notebook):
+
+    tab = ttk.Frame(notebook)
+    notebook.add(tab, text = 'Model Comparison Plots')
+
+    control_frame = ttk.LabelFrame(tab, text='Type Of Plots')
+    control_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+
+    date_time_frame = ttk.LabelFrame(tab, text='Options')
+    date_time_frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+
+    plot_area_frame = ttk.LabelFrame(tab, text='Plot Area')
+    plot_area_frame.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
+
+    plot_type_label = ttk.Label(control_frame, text='Select Type Of Plot:')
+    plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+
+
 
 def update_station_options(parent, frame, values):
     """
@@ -173,21 +202,21 @@ def update_station_options(parent, frame, values):
         frame (ttk.Frame): The frame containing the station selection options.
         values (tk.StringVar): The variable containing the selected number of plots.
     """
+    stations = ['ABQ', 'ABR', 'ALY', 'AMA', 'APX', 'BIS', 'BMX', 'BOI', 'BRO', 'BUF',
+                 'CAR', 'CHS', 'CHH', 'CRP', 'DDC', 'DNR', 'DRT', 'DTX', 'DVN', 'EPZ', 
+                 'EYW', 'FFC', 'FGZ', 'FWD', 'GGW', 'GJT', 'GRB', 'GSO', 'GYX', 'ILN', 
+                 'ILX', 'INL', 'JAN', 'JAX', 'LBF', 'LCH', 'LKN', 'LIX', 'LWX', 'LZK', 
+                 'MAF', 'MFL', 'MFR', 'MHX', 'MPX', 'NKX', 'OAK', 'OAX', 'OHX', 'OKX', 
+                 'OTX', 'OUN', 'PBZ', 'REV', 'RIW', 'RNK', 'SGF', 'SHV', 'SLC', 'SLE', 
+                 'TAE', 'TBW', 'TFX', 'TUS', 'UIL', 'UNR', 'VEF', 'WAL']
     quantity = int(values.get()) if values.get() else 1  # Get the selected number
-    stations = [
-        'ABQ', 'ALB', 'AMA', 'AWE', 'BIS', 'BMX', 'BOI', 'BUF', 'CAR', 'CHS', 'CRP',
-        'DDC', 'DRT', 'DVN', 'EPZ', 'EYW', 'FFC', 'FGZ', 'FWD', 'GGW', 'GRB',
-        'GSO', 'GTJ', 'GYX', 'IAO', 'IDX', 'ILN', 'ILX', 'INL', 'JAN', 'JAX',
-        'LCH', 'LKN', 'LIX', 'LMN', 'LZK', 'MAF', 'MFL', 'MFR', 'MHX', 'MPX',
-        'NKX', 'OAK', 'OKX', 'OTX', 'OUN', 'PIT', 'REV', 'RIW', 'RNK', 'SGF',
-        'SHV', 'SLE', 'SLC', 'TBW', 'TFX', 'TOP', 'TUS', 'UIL', 'WAL', 'XMR'
-    ] #list of station codes
     years = list(range(1991, 2026)) #list of years
     months = list(range(1, 13)) #list of months
     day_31 = list(range(1, 32)) #list of days for 31 day months
     day_30 = list(range(1, 31)) #list of days for 30 day months
     day_28 = list(range(1, 29)) #list of days for 28 day months
     day_29 = list(range(1, 30)) #list of days for 29 day months
+    hours = [0, 12]
     for widget in frame.winfo_children():
         widget.destroy() #destroy previous widgets
 
@@ -199,6 +228,8 @@ def update_station_options(parent, frame, values):
     month.grid(row=0, column=3, padx=5, pady=5, sticky='w')
     day = ttk.Label(frame, text='Day:') #day label
     day.grid(row=0, column=4, padx=5, pady=5, sticky='w')
+    hour = ttk.Label(frame, text='Hour:')
+    hour.grid(row=0, column=5, padx=5, pady=5, sticky='w')
 
     def make_day_update(dm, mv, yv):
         """
@@ -210,6 +241,7 @@ def update_station_options(parent, frame, values):
     parent.year_menus = [] #list of year menus
     parent.month_menus = [] #list of month menus
     parent.day_menus = [] #list of day menus
+    parent.hour_menus = []
 
     for i in range(quantity): #loop through the number of plots
         station_label = ttk.Label(frame, text=f'station selection: {i+1}') #station label
@@ -239,11 +271,17 @@ def update_station_options(parent, frame, values):
         parent.day_menus.append(day_menu) #add day menu to list
         if day_options:
             day_menu.current(0) #set day to first option if available
+        
+        hour_var = tk.StringVar(parent)
+        hour_options = hours
+        hour_menu = ttk.Combobox(frame, textvariable=hour_var, values=hour_options)
+        hour_menu.grid(row=i+1, column=5, padx=5, pady=5, sticky='w')
+        parent.hour_menus.append(hour_menu)
 
         year_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to year variable
         month_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to month variable
 
-def generate_plot(stations, years, months, days, title, plot_frame):
+def generate_plot(stations, years, months, days, hours, title, plot_frame):
     """
     Generates and displays the Skew-T plot.
 
@@ -255,13 +293,19 @@ def generate_plot(stations, years, months, days, title, plot_frame):
         title (str): Title of the plot.
         plot_frame (ttk.Frame): The frame to display the plot in.
     """
-    dates = [dt.datetime(years[i], months[i], days[i], 0) for i in range(len(years))] #create datetime objects
+    dates = [dt.datetime(years[i], months[i], days[i], hours[i]) for i in range(len(years))] #create datetime objects
     data_frame = create_dataframes(stations, dates) #get dataframes
 
     for widget in plot_frame.winfo_children():
         widget.destroy() #destroy previous widgets
     if dates:
-        create_skewt(data_frame, stations, dates, title) #create Skew-T plot
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        max_width = screen_width*0.8
+        max_height = screen_height*0.8
+        aspect_ratio = 1
+        fig_size = (min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100))
+        create_skewt(data_frame, stations, dates, title, fig_size) #create Skew-T plot
         canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_frame) #create canvas
         canvas_widget = canvas.get_tk_widget() #get canvas widget
         canvas_widget.pack() #pack canvas widget
