@@ -13,6 +13,7 @@ from tkinter import filedialog
 import os
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
+from scipy.interpolate import interp1d
 
 def create_dataframes(station_ids, dates):
     """
@@ -104,6 +105,83 @@ def create_skewt(data, stations, dates, title, fig_size):
 
     plt.title(f'{title}')  # Set the plot title
 
+def create_mean_skewt(data, stations, dates, title, fig_size):
+    """
+    Creates and plots a Skew-T diagram from the average of the given data,
+    including CAPE and CIN, handling datasets with different sizes using interpolation.
+    """
+    plt.clf()
+    fig = plt.figure(figsize=fig_size)
+    skew = SkewT(fig, rotation=30)
+
+    valid_dataframes = [df for df in data.values() if df is not None]
+
+    if not valid_dataframes:
+        print("No valid data available for averaging.")
+        return
+
+    reference_p = valid_dataframes[0]['pressure'].values * units.hPa
+    common_p = reference_p
+
+    T_interp_list = []
+    Td_interp_list = []
+    u_interp_list = []
+    v_interp_list = []
+    height_interp_list = []
+
+    for df in valid_dataframes:
+        try:
+            p = df['pressure'].values * units.hPa
+            T = df['temperature'].values * units.degC
+            Td = df['dewpoint'].values * units.degC
+            u = df['u_wind'].values * units.knots
+            v = df['v_wind'].values * units.knots
+            height = df['height'].values * units.meter
+
+            T_interp = interp1d(p, T, bounds_error=False)(common_p) * units.degC
+            Td_interp = interp1d(p, Td, bounds_error=False)(common_p) * units.degC
+            u_interp = interp1d(p, u, bounds_error=False)(common_p) * units.knots
+            v_interp = interp1d(p, v, bounds_error=False)(common_p) * units.knots
+            height_interp = interp1d(p, height, bounds_error=False)(common_p) * units.meter
+
+            T_interp_list.append(T_interp)
+            Td_interp_list.append(Td_interp)
+            u_interp_list.append(u_interp)
+            v_interp_list.append(v_interp)
+            height_interp_list.append(height_interp)
+
+        except Exception as e:
+            print(f'Error processing data: {e}')
+            return
+
+    T_avg = np.nanmean(np.array(T_interp_list), axis=0)
+    Td_avg = np.nanmean(np.array(Td_interp_list), axis=0)
+    u_avg = np.nanmean(np.array(u_interp_list), axis=0)
+    v_avg = np.nanmean(np.array(v_interp_list), axis=0)
+    height_avg = np.nanmean(np.array(height_interp_list), axis=0)
+
+    pressure_padding = 20 * units.hPa
+    label_pressure = common_p[0] + pressure_padding
+
+    skew.plot(common_p, T_avg, 'r', linewidth=2, label='Average Temperature')
+    skew.plot(common_p, Td_avg, 'g', linewidth=2, label='Average Dewpoint')
+    
+    skew.ax.text(T_avg[0], label_pressure, 'Average', color='r', ha='center', va='top', fontsize='8')
+    skew.ax.text(Td_avg[0], label_pressure, 'Average', color='g', ha='center', va='top', fontsize='8')
+
+    interval = np.max([1, int(len(common_p) / 50)])
+    skew.plot_barbs(common_p[::interval], u_avg[::interval], v_avg[::interval], xloc=1.05)
+
+    skew.plot_dry_adiabats(t0=np.arange(233, 533, 10) * units.K, alpha=0.25, color='k')
+    skew.plot_moist_adiabats(t0=np.arange(253, 401, 5) * units.K, alpha=0.25, color='k')
+
+    skew.ax.set_xlim(-50, 40)
+    skew.ax.set_ylim(1000, 100)
+    skew.ax.set_xlabel('Temperature (°C)')
+    skew.ax.set_ylabel('Pressure (hPa)')
+
+    plt.title(f'{title}')
+
 def save_plot():
     """
     Saves the current plot to a file.
@@ -167,12 +245,20 @@ def multiple_sation_plot(notebook):
         day_list = [int(menu.get()) for menu in tab.day_menus] #get day list
         hour_list = [int(menu.get()) for menu in tab.hour_menus]
         title_var = title_text.get() #get title
-        generate_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame) #generate plot
+        plot_var = plot_type.get()
+        print(plot_var)
+        generate_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var) #generate plot
 
     plot_button = ttk.Button(control_frame, text='Generate Plot', command=lambda: plot_button_command()) #create plot button
     plot_button.grid(row=0, column=2, padx=5, pady=5, sticky='w')
     save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_plot()) #create save button
     save_button.grid(row=1, column=2, padx=5, pady=5, sticky='w')
+
+    plot_type = tk.StringVar(value='all')
+    plot_all_radio = ttk.Radiobutton(control_frame, text='Plot All',variable=plot_type, value='all')
+    plot_mean_radio = ttk.Radiobutton(control_frame, text='Plot Mean', variable=plot_type, value='mean')
+    plot_all_radio.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+    plot_mean_radio.grid(row=1, column=3, padx=5, pady=5, sticky='w')
 
 def model_station_plots(notebook):
 
@@ -281,7 +367,7 @@ def update_station_options(parent, frame, values):
         year_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to year variable
         month_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to month variable
 
-def generate_plot(stations, years, months, days, hours, title, plot_frame):
+def generate_plot(stations, years, months, days, hours, title, plot_frame, plot_var):
     """
     Generates and displays the Skew-T plot.
 
@@ -305,7 +391,10 @@ def generate_plot(stations, years, months, days, hours, title, plot_frame):
         max_height = screen_height*0.8
         aspect_ratio = 1
         fig_size = (min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100))
-        create_skewt(data_frame, stations, dates, title, fig_size) #create Skew-T plot
+        if plot_var == 'mean':
+            create_mean_skewt(data_frame, stations, dates, title, fig_size)
+        elif plot_var == 'all':
+            create_skewt(data_frame, stations, dates, title, fig_size) #create Skew-T plot
         canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_frame) #create canvas
         canvas_widget = canvas.get_tk_widget() #get canvas widget
         canvas_widget.pack() #pack canvas widget
