@@ -72,7 +72,7 @@ def create_skewt(data, stations, dates, title, fig_size):
             u = df['u_wind'].values * units.knots
             v = df['v_wind'].values * units.knots
             height = df['height'].values * units.meter
-            parcel_profile = mpcalc.parcel_profile(p, T[0], Td[0]).to('degC')  # Calculate parcel profile
+            #parcel_profile = mpcalc.parcel_profile(p, T[0], Td[0]).to('degC')  # Calculate parcel profile
         except Exception as e:
             # Handle any errors during data processing
             print(f'Error fetching or processing the data: {e}')
@@ -84,7 +84,7 @@ def create_skewt(data, stations, dates, title, fig_size):
         # Plot temperature, dewpoint, and parcel profile
         skew.plot(p, T, 'r', linewidth=2, label='Temperature')
         skew.plot(p, Td, 'g', linewidth=2, label='Dewpoint')
-        skew.plot(p, parcel_profile, 'k', linewidth=2, label='Parcel Profile')
+        #skew.plot(p, parcel_profile, 'k', linewidth=2, label='Parcel Profile')
         #add station text to temperature and dewpoint lines
         skew.ax.text(T[0], label_pressure, stations[i], color='r', ha='center', va='top', fontsize='8')
         skew.ax.text(Td[0], label_pressure, stations[i], color='g', ha='center', va='top', fontsize='8')
@@ -198,7 +198,7 @@ def multiple_sation_plot(notebook):
     Args:
         notebook (ttk.Notebook): The notebook widget to add the tab to.
     """
-    number_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # Options for number of plots
+    number_options = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]  # Options for number of plots
 
     tab = ttk.Frame(notebook)  # Create a new tab
     notebook.add(tab, text='Observation Comparison Diagrams')  # Add the tab to the notebook
@@ -259,6 +259,184 @@ def multiple_sation_plot(notebook):
     plot_mean_radio = ttk.Radiobutton(control_frame, text='Plot Mean', variable=plot_type, value='mean')
     plot_all_radio.grid(row=0, column=3, padx=5, pady=5, sticky='w')
     plot_mean_radio.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+
+def thermal_station_plots(notebook):
+    tab = ttk.Frame(notebook)
+    notebook.add(tab, text='Thermals')
+
+    def change_grid(plot_type):
+        plot_var = plot_type.get()
+        
+        for widget in control_frame.winfo_children():
+            widget.destroy()
+        for widget in station_frame.winfo_children():
+            widget.destroy()
+        
+        if plot_var == 'single':
+            station = ttk.Label(station_frame, text='Sation:') #station label
+            station.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            year = ttk.Label(station_frame, text=f'Year:') #year label
+            year.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+            month = ttk.Label(station_frame, text='Month:') #month label
+            month.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+            day = ttk.Label(station_frame, text='Day:') #day label
+            day.grid(row=0, column=4, padx=5, pady=5, sticky='w')
+            hour = ttk.Label(station_frame, text='Hour:')
+            hour.grid(row=0, column=5, padx=5, pady=5, sticky='w')
+
+            stations = ['ABQ', 'ABR', 'ALY', 'AMA', 'APX', 'BIS', 'BMX', 'BOI', 'BRO', 'BUF',
+                 'CAR', 'CHS', 'CHH', 'CRP', 'DDC', 'DNR', 'DRT', 'DTX', 'DVN', 'EPZ', 
+                 'EYW', 'FFC', 'FGZ', 'FWD', 'GGW', 'GJT', 'GRB', 'GSO', 'GYX', 'ILN', 
+                 'ILX', 'INL', 'JAN', 'JAX', 'LBF', 'LCH', 'LKN', 'LIX', 'LWX', 'LZK', 
+                 'MAF', 'MFL', 'MFR', 'MHX', 'MPX', 'NKX', 'OAK', 'OAX', 'OHX', 'OKX', 
+                 'OTX', 'OUN', 'PBZ', 'REV', 'RIW', 'RNK', 'SGF', 'SHV', 'SLC', 'SLE', 
+                 'TAE', 'TBW', 'TFX', 'TUS', 'UIL', 'UNR', 'VEF', 'WAL']
+            years = list(range(1991, 2026)) #list of years
+            months = list(range(1, 13)) #list of months
+            day_31 = list(range(1, 32)) #list of days for 31 day months
+            day_30 = list(range(1, 31)) #list of days for 30 day months
+            day_28 = list(range(1, 29)) #list of days for 28 day months
+            day_29 = list(range(1, 30)) #list of days for 29 day months
+            hours = [0, 12]
+
+            def make_day_update(dm, mv, yv):
+                """
+                Creates a function to update the day options based on month and year.
+                """
+                return lambda *args: update_day_options(dm, mv, yv, day_31, day_30, day_28, day_29)
+
+            def plot_button_command():
+                """
+                Handles the plot button click event.
+                """
+                station_list = station_menu.get()
+                year_list = year_menu.get()
+                month_list = month_menu.get()
+                day_list = day_menu.get()
+                hour_list = hour_menu.get()
+                title_var = title_text.get() #get title
+                plot_var = plot_type.get()
+                generate_thermal_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var)
+            
+            title_label = ttk.Label(control_frame, text='Plot Title:')
+            title_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            title_text = ttk.Entry(control_frame)
+            title_text.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            
+            plot_button = ttk.Button(control_frame, text='Generate Plot', command=lambda: plot_button_command()) #create plot button
+            plot_button.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_plot()) #create save button
+            save_button.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+
+            station_label = ttk.Label(station_frame, text=f'station selection:') #station label
+            station_label.grid(row=1, column=0, padx=3, pady=3, sticky='w')
+            station_var = tk.StringVar(tab) #station variable
+            station_options = stations #station options
+            station_menu = ttk.Combobox(station_frame, textvariable=station_var, values=station_options) #station combobox
+            station_menu.grid(row=1, column=1, padx=3, pady=3, sticky='w')
+
+            year_var = tk.StringVar(tab) #year variable
+            year_options = years #year options
+            year_menu = ttk.Combobox(station_frame, textvariable=year_var, values=year_options) #year combobox
+            year_menu.grid(row=1, column=2, padx=3, pady=3, sticky='w')
+
+            month_var = tk.StringVar(tab) #month variable
+            month_options = months #month options
+            month_menu = ttk.Combobox(station_frame, textvariable=month_var, values=month_options) #month combobox
+            month_menu.grid(row=1, column=3, padx=3, pady=3, sticky='w')
+
+            day_var = tk.StringVar(tab) #day variable
+            day_options = get_day_options(month_var, year_var, day_31, day_30, day_28, day_29) #get day options
+            day_menu = ttk.Combobox(station_frame, textvariable=day_var, values=[]) #day combobox
+            day_menu.grid(row=1, column=4, padx=3, pady=3, sticky='w')
+            if day_options:
+                day_menu.current(0) #set day to first option if available
+            
+            hour_var = tk.StringVar(tab)
+            hour_options = hours
+            hour_menu = ttk.Combobox(station_frame, textvariable=hour_var, values=hour_options)
+            hour_menu.grid(row=1, column=5, padx=5, pady=5, sticky='w')
+
+            year_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to year variable
+            month_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to month variable
+        
+        elif plot_var == 'mean':
+            number_options = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+
+            station = ttk.Label(station_frame, text='Sation:') #station label
+            station.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            year = ttk.Label(station_frame, text=f'Year:') #year label
+            year.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+            month = ttk.Label(station_frame, text='Month:') #month label
+            month.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+            day = ttk.Label(station_frame, text='Day:') #day label
+            day.grid(row=0, column=4, padx=5, pady=5, sticky='w')
+            hour = ttk.Label(station_frame, text='Hour:')
+            hour.grid(row=0, column=5, padx=5, pady=5, sticky='w')
+
+            number_label = ttk.Label(control_frame, text='Select Number of Skew-T Plots:')  # Label for number selection
+            number_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            number_var = tk.StringVar(tab)  # Variable to store the selected number
+            number_var.trace_add('write', lambda *args: update_station_options(tab, station_frame, number_var))  # Update station options when number changes
+            number_menu = ttk.Combobox(control_frame, textvariable=number_var, values=number_options)  # Combobox for number selection
+            number_menu.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
+
+            title_label = ttk.Label(control_frame, text='Create Label:') #label for title
+            title_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            title_text = ttk.Entry(control_frame) #entry for title
+            title_text.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+
+            station = ttk.Label(station_frame, text='Sation:') #station label
+            station.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            year = ttk.Label(station_frame, text=f'Year:') #year label
+            year.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+            month = ttk.Label(station_frame, text='Month:') #month label
+            month.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+            day = ttk.Label(station_frame, text='Day:') #day label
+            day.grid(row=0, column=4, padx=5, pady=5, sticky='w')
+            hour = ttk.Label(station_frame, text='Hour:')
+            hour.grid(row=0, column=5, padx=5, pady=5, sticky='w')
+
+            def plot_button_command():
+                """
+                Handles the plot button click event.
+                """
+                station_list = [menu.get() for menu in tab.station_menus] #get station list
+                year_list = [int(menu.get()) for menu in tab.year_menus] #get year list
+                month_list = [int(menu.get()) for menu in tab.month_menus] #get month list
+                day_list = [int(menu.get()) for menu in tab.day_menus] #get day list
+                hour_list = [int(menu.get()) for menu in tab.hour_menus]
+                title_var = title_text.get() #get title
+                plot_var = plot_type.get()
+                print(plot_var)
+                generate_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var) #generate plot
+
+            plot_button = ttk.Button(control_frame, text='Generate Plot', command=lambda: plot_button_command()) #create plot button
+            plot_button.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+            save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_plot()) #create save button
+            save_button.grid(row=1, column=2, padx=5, pady=5, sticky='w')
+            
+    variable_frame = ttk.LabelFrame(tab, text='Variable Selection')
+    variable_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+
+    control_frame = ttk.LabelFrame(tab, text='Control Frame')
+    control_frame.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+
+    station_frame = ttk.LabelFrame(tab, text='Select Station')
+    station_frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+
+    plot_frame = ttk.LabelFrame(tab, text='Plot Area')
+    plot_frame.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
+
+    plot_label = ttk.Label(variable_frame, text='Select Plot Type:')
+    plot_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+
+    plot_type = tk.StringVar(value='single')
+    plot_single_radio = ttk.Radiobutton(variable_frame, text='Single Station', variable=plot_type, value='single', command= lambda *args: change_grid(plot_type))
+    plot_single_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+    plot_mean_radio = ttk.Radiobutton(variable_frame, text='Mean Plot', variable=plot_type, value='mean', command= lambda *args: change_grid(plot_type))
+    plot_mean_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+    
 
 def model_station_plots(notebook):
 
@@ -367,6 +545,10 @@ def update_station_options(parent, frame, values):
         year_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to year variable
         month_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to month variable
 
+def generate_thermal_plot(stations, years, months, days, hours, title, plot_frame, plot_var):
+    dates = [dt.datetime(years[i], months[i], hours[i]) for i in range(len(years))]
+    data_frame = create_dataframes(stations, dates)
+
 def generate_plot(stations, years, months, days, hours, title, plot_frame, plot_var):
     """
     Generates and displays the Skew-T plot.
@@ -463,5 +645,6 @@ notebook = ttk.Notebook(root) #create notebook
 notebook.pack(fill='both', expand=True) #pack notebook
 
 multiple_sation_plot(notebook) #create multiple station plot tab
+thermal_station_plots(notebook)
 
 root.mainloop() #start main loop
