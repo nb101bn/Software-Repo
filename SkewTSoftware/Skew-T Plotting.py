@@ -14,6 +14,7 @@ import os
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
 from scipy.interpolate import interp1d
+from PIL import Image, ImageGrab
 
 def create_dataframes(station_ids, dates):
     """
@@ -182,6 +183,41 @@ def create_mean_skewt(data, stations, dates, title, fig_size):
 
     plt.title(f'{title}')
 
+def calculate_thermo_params(df):
+    """Calculates thermodynamic parameters from a DataFrame."""
+    if df is None:
+        return {}
+
+    p = df['pressure'].values * units.hPa
+    T = df['temperature'].values * units.degC
+    Td = df['dewpoint'].values * units.degC
+
+    try:
+        # Calculate CAPE and CIN
+        parcel_profile = mpcalc.parcel_profile(p, T[0], Td[0]).to('degC')
+        cape, cin = mpcalc.cape_cin(p, T, Td, parcel_profile)
+
+        # Calculate Lifted Index (LI)
+        li = mpcalc.lifted_index(p, T, parcel_profile)
+
+        # Calculate K Index
+        k_index = mpcalc.k_index(p, T, Td)
+
+        # You can add more calculations as needed
+
+        return {
+            'CAPE': cape.to('J/kg').magnitude,
+            'CIN': cin.to('J/kg').magnitude,
+            'LI': li.to('delta_degC').magnitude,
+            'K Index': k_index.magnitude,
+            # Add more parameters here
+        }
+    except Exception as e:
+        print(f"Error calculating thermo params: {e}")
+        return {}
+    
+
+
 def save_plot():
     """
     Saves the current plot to a file.
@@ -190,6 +226,24 @@ def save_plot():
     if filename:
         plt.savefig(filename)  # Save the plot
         print(f"Plot saved to {filename}")
+
+def save_thermo_plot(tab):
+    """Saves the current plot or Treeview to a file."""
+
+    if hasattr(tab, 'tree'):  # Check if Treeview exists
+        tree = tab.tree
+        x, y, width, height = tree.winfo_rootx(), tree.winfo_rooty(), tree.winfo_width(), tree.winfo_height()
+        image = ImageGrab.grab(bbox=(x, y, x + width, y + height))
+        filename = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
+        if filename:
+            image.save(filename)
+            print(f"Treeview saved to {filename}")
+        tab.tree = None #reset the tree to none so it doesnt try to save a tree that doesnt exist
+    else:  # Save the Matplotlib plot (if any)
+        filename = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png"), ("All files", "*.*")])
+        if filename:
+            plt.savefig(filename)
+            print(f"Plot saved to {filename}")
 
 def multiple_sation_plot(notebook):
     """
@@ -316,7 +370,7 @@ def thermal_station_plots(notebook):
                 hour_list = hour_menu.get()
                 title_var = title_text.get() #get title
                 plot_var = plot_type.get()
-                generate_thermal_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var)
+                generate_thermal_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var, tab)
             
             title_label = ttk.Label(control_frame, text='Plot Title:')
             title_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
@@ -325,7 +379,7 @@ def thermal_station_plots(notebook):
             
             plot_button = ttk.Button(control_frame, text='Generate Plot', command=lambda: plot_button_command()) #create plot button
             plot_button.grid(row=0, column=1, padx=5, pady=5, sticky='w')
-            save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_plot()) #create save button
+            save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_thermo_plot(tab)) #create save button
             save_button.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
             station_label = ttk.Label(station_frame, text=f'station selection:') #station label
@@ -409,11 +463,11 @@ def thermal_station_plots(notebook):
                 title_var = title_text.get() #get title
                 plot_var = plot_type.get()
                 print(plot_var)
-                generate_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var) #generate plot
+                generate_thermal_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var, tab) #generate plot
 
             plot_button = ttk.Button(control_frame, text='Generate Plot', command=lambda: plot_button_command()) #create plot button
             plot_button.grid(row=0, column=2, padx=5, pady=5, sticky='w')
-            save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_plot()) #create save button
+            save_button = ttk.Button(control_frame, text='Save Plot', command=lambda: save_thermo_plot(tab)) #create save button
             save_button.grid(row=1, column=2, padx=5, pady=5, sticky='w')
             
     variable_frame = ttk.LabelFrame(tab, text='Variable Selection')
@@ -545,9 +599,94 @@ def update_station_options(parent, frame, values):
         year_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to year variable
         month_var.trace_add('write', make_day_update(day_menu, month_var, year_var)) #add trace to month variable
 
-def generate_thermal_plot(stations, years, months, days, hours, title, plot_frame, plot_var):
-    dates = [dt.datetime(years[i], months[i], hours[i]) for i in range(len(years))]
-    data_frame = create_dataframes(stations, dates)
+def generate_thermal_plot(station_list, year_list, month_list, day_list, hour_list, title_var, plot_frame, plot_var, parent):
+    """Generates Skew-T plots and displays thermodynamic parameters."""
+
+    if plot_var == 'single':
+        dates = [dt.datetime(int(year_list), int(month_list), int(day_list), int(hour_list))]
+        dataframes = create_dataframes([station_list], dates)
+    elif plot_var == 'mean':
+        dates = [dt.datetime(year_list[i], month_list[i], day_list[i], hour_list[i]) for i in range(len(station_list))]
+        dataframes = create_dataframes(station_list, dates)
+
+    # Display thermodynamic parameters in a table
+    display_thermo_params(station_list, dataframes, plot_frame, title_var, plot_var, parent)
+
+def display_thermo_params(station_list, dataframes, plot_frame, title_var, plot_var, parent):
+    """Displays thermodynamic parameters in a Treeview table."""
+
+    for widget in plot_frame.winfo_children():
+        widget.destroy()
+
+    tree = ttk.Treeview(plot_frame)
+
+    tree['columns'] = ('Station', 'CAPE', 'CIN', 'LI', 'K Index')  # Add more columns as needed
+
+    tree.column('#0', width=0, stretch=tk.NO)
+    tree.column('Station', anchor=tk.W, width=100)
+    tree.column('CAPE', anchor=tk.CENTER, width=80)
+    tree.column('CIN', anchor=tk.CENTER, width=80)
+    tree.column('LI', anchor=tk.CENTER, width=80)
+    tree.column('K Index', anchor=tk.CENTER, width=80)
+
+    tree.heading('#0', text='', anchor=tk.W)
+    tree.heading('Station', text='Station', anchor=tk.W)
+    tree.heading('CAPE', text='CAPE (J/kg)', anchor=tk.CENTER)
+    tree.heading('CIN', text='CIN (J/kg)', anchor=tk.CENTER)
+    tree.heading('LI', text='LI (°C)', anchor=tk.CENTER)
+    tree.heading('K Index', text='K Index', anchor=tk.CENTER)
+
+    if plot_var == 'single':
+        if isinstance(dataframes, dict):
+            print(plot_var)
+            print(dataframes[0])
+            params = calculate_thermo_params(dataframes[0])
+            if params:
+                tree.insert('', tk.END, values=(
+                    f"{station_list}",
+                    params.get('CAPE', 'N/A'),
+                    params.get('CIN', 'N/A'),
+                    params.get('LI', 'N/A'),
+                    params.get('K Index', 'N/A'),
+                ))
+    elif plot_var == 'mean':
+        cape_list = []
+        cin_list = []
+        li_list = []
+        k_index_list = []
+
+        valid_dfs = [df for df in dataframes.values() if df is not None]
+
+        if valid_dfs:
+            for df in valid_dfs:
+                params = calculate_thermo_params(df)
+                if params:
+                    cape_list.append(params.get('CAPE', np.nan))
+                    cin_list.append(params.get('CIN', np.nan))
+                    li_list.append(params.get('LI', np.nan))
+                    k_index_list.append(params.get('K Index', np.nan))
+
+            mean_cape = np.nanmean(cape_list)
+            mean_cin = np.nanmean(cin_list)
+            mean_li = np.nanmean(li_list)
+            mean_k_index = np.nanmean(k_index_list)
+
+            tree.insert('', tk.END, values=(
+                f"Mean",
+                mean_cape,
+                mean_cin,
+                mean_li,
+                mean_k_index,
+            ))
+    
+    if title_var:  # Insert title row if title_var is not empty
+        tree.insert('', tk.END, values=('', '', title_var, '', ''), tags=('title',))
+        tree.tag_configure('title', font=('TkDefaultFont', 12, 'bold'))
+        title_width = len(title_var)*8 +50
+        tree.column('#2', width=title_width, stretch=tk.YES)
+
+    parent.tree = tree
+    tree.pack(pady=10)
 
 def generate_plot(stations, years, months, days, hours, title, plot_frame, plot_var):
     """
