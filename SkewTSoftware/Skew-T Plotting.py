@@ -194,22 +194,39 @@ def calculate_thermo_params(df):
 
     try:
         # Calculate CAPE and CIN
-        parcel_profile = mpcalc.parcel_profile(p, T[0], Td[0]).to('degC')
-        cape, cin = mpcalc.cape_cin(p, T, Td, parcel_profile)
+        parcel_profile = mpcalc.parcel_profile(p, T[0], Td[0])
+        print(f'Parcel Profile: {parcel_profile}')
+        parcel_profile_temp = parcel_profile.to('degC')
+        print(f'Parcel Profile Temp: {parcel_profile_temp}')
+
+        cape, cin = mpcalc.cape_cin(p, T, Td, parcel_profile_temp)
+        print(f'Cape, Cin: {cape}, {cin}')
 
         # Calculate Lifted Index (LI)
-        li = mpcalc.lifted_index(p, T, parcel_profile)
+        li = mpcalc.lifted_index(p, T, parcel_profile_temp)
+        print(f'Lifted Index: {li}')
 
-        # Calculate K Index
-        k_index = mpcalc.k_index(p, T, Td)
+        # Calculate Pwat
+        
+        Pwat = mpcalc.precipitable_water(p, Td)
+        print(f'Pwat: {Pwat}')
+
+        most_unstable_parcel = mpcalc.most_unstable_parcel(p, T, Td)
+        print(f'Most Unstable Parcel: {most_unstable_parcel}')
+
+        #e = mpcalc.vapor_pressure(Td)
+        #mixing_ratio = mpcalc.mixing_ratio(e, p, molecular_weight_ratio=0.6219569100577033)
+        #print(f'Mixing Ratio: {mixing_ratio}')
 
         # You can add more calculations as needed
 
         return {
-            'CAPE': cape.to('J/kg').magnitude,
-            'CIN': cin.to('J/kg').magnitude,
+            'MU CAPE': cape.to('J/kg').magnitude,
+            'MU Parcel': most_unstable_parcel[0].to('hPa').magnitude,
             'LI': li.to('delta_degC').magnitude,
-            'K Index': k_index.magnitude,
+            'Pwat': Pwat.to('mm').magnitude,
+            #'Mixing Ratio': mixing_ratio.to('g/kg').magnitude,
+            'Parcel Profile': parcel_profile[0].to('degC').magnitude,
             # Add more parameters here
         }
     except Exception as e:
@@ -344,7 +361,7 @@ def thermal_station_plots(notebook):
                  'ILX', 'INL', 'JAN', 'JAX', 'LBF', 'LCH', 'LKN', 'LIX', 'LWX', 'LZK', 
                  'MAF', 'MFL', 'MFR', 'MHX', 'MPX', 'NKX', 'OAK', 'OAX', 'OHX', 'OKX', 
                  'OTX', 'OUN', 'PBZ', 'REV', 'RIW', 'RNK', 'SGF', 'SHV', 'SLC', 'SLE', 
-                 'TAE', 'TBW', 'TFX', 'TUS', 'UIL', 'UNR', 'VEF', 'WAL']
+                 'TAE', 'TBW', 'TFX', 'TOP', 'TUS', 'UIL', 'UNR', 'VEF', 'WAL']
             years = list(range(1991, 2026)) #list of years
             months = list(range(1, 13)) #list of months
             day_31 = list(range(1, 32)) #list of days for 31 day months
@@ -526,7 +543,7 @@ def update_station_options(parent, frame, values):
                  'ILX', 'INL', 'JAN', 'JAX', 'LBF', 'LCH', 'LKN', 'LIX', 'LWX', 'LZK', 
                  'MAF', 'MFL', 'MFR', 'MHX', 'MPX', 'NKX', 'OAK', 'OAX', 'OHX', 'OKX', 
                  'OTX', 'OUN', 'PBZ', 'REV', 'RIW', 'RNK', 'SGF', 'SHV', 'SLC', 'SLE', 
-                 'TAE', 'TBW', 'TFX', 'TUS', 'UIL', 'UNR', 'VEF', 'WAL']
+                 'TAE', 'TBW', 'TFX', 'TUS', 'TOP', 'UIL', 'UNR', 'VEF', 'WAL']
     quantity = int(values.get()) if values.get() else 1  # Get the selected number
     years = list(range(1991, 2026)) #list of years
     months = list(range(1, 13)) #list of months
@@ -620,21 +637,25 @@ def display_thermo_params(station_list, dataframes, plot_frame, title_var, plot_
 
     tree = ttk.Treeview(plot_frame)
 
-    tree['columns'] = ('Station', 'CAPE', 'CIN', 'LI', 'K Index')  # Add more columns as needed
+    tree['columns'] = ('Station', 'MU CAPE', 'MU Parcel', 'LI', 'Pwat', 'Parcel Profile')  # Add more columns as needed
 
     tree.column('#0', width=0, stretch=tk.NO)
     tree.column('Station', anchor=tk.W, width=100)
-    tree.column('CAPE', anchor=tk.CENTER, width=80)
-    tree.column('CIN', anchor=tk.CENTER, width=80)
-    tree.column('LI', anchor=tk.CENTER, width=80)
-    tree.column('K Index', anchor=tk.CENTER, width=80)
+    tree.column('MU CAPE', anchor=tk.CENTER, width=100)
+    tree.column('MU Parcel', anchor=tk.CENTER, width=100)
+    tree.column('LI', anchor=tk.CENTER, width=100)
+    tree.column('Pwat', anchor=tk.CENTER, width=100)
+    #tree.column('Mixing Ratio', anchor=tk.CENTER, width=80)
+    tree.column('Parcel Profile', anchor=tk.CENTER, width=100)
 
     tree.heading('#0', text='', anchor=tk.W)
     tree.heading('Station', text='Station', anchor=tk.W)
-    tree.heading('CAPE', text='CAPE (J/kg)', anchor=tk.CENTER)
-    tree.heading('CIN', text='CIN (J/kg)', anchor=tk.CENTER)
+    tree.heading('MU CAPE', text='MU CAPE (J/kg)', anchor=tk.CENTER)
+    tree.heading('MU Parcel', text='MU Parcel (hPa)', anchor=tk.CENTER)
     tree.heading('LI', text='LI (°C)', anchor=tk.CENTER)
-    tree.heading('K Index', text='K Index', anchor=tk.CENTER)
+    tree.heading('Pwat', text='Pwat (mm)', anchor=tk.CENTER)
+    #tree.heading('Mixing Ratio', text='Mixing Ratio (g/kg)', anchor=tk.CENTER)
+    tree.heading('Parcel Profile', text='Parcel Profile (°C)', anchor=tk.CENTER)
 
     if plot_var == 'single':
         if isinstance(dataframes, dict):
@@ -644,16 +665,20 @@ def display_thermo_params(station_list, dataframes, plot_frame, title_var, plot_
             if params:
                 tree.insert('', tk.END, values=(
                     f"{station_list}",
-                    params.get('CAPE', 'N/A'),
-                    params.get('CIN', 'N/A'),
+                    params.get('MU CAPE', 'N/A'),
+                    params.get('MU Parcel', 'N/A'),
                     params.get('LI', 'N/A'),
-                    params.get('K Index', 'N/A'),
+                    params.get('Pwat', 'N/A'),
+                    #params.get('Mixing Ratio', 'N/A'),
+                    params.get('Parcel Profile', 'N/A')
                 ))
     elif plot_var == 'mean':
-        cape_list = []
-        cin_list = []
+        mu_cape_list = []
+        mu_parcel_list = []
         li_list = []
-        k_index_list = []
+        pwat_list = []
+        #mixing_ratio_list = []
+        parcel_profile_list = []
 
         valid_dfs = [df for df in dataframes.values() if df is not None]
 
@@ -661,22 +686,29 @@ def display_thermo_params(station_list, dataframes, plot_frame, title_var, plot_
             for df in valid_dfs:
                 params = calculate_thermo_params(df)
                 if params:
-                    cape_list.append(params.get('CAPE', np.nan))
-                    cin_list.append(params.get('CIN', np.nan))
+                    mu_cape_list.append(params.get('MU CAPE', np.nan))
+                    mu_parcel_list.append(params.get('MU Parcel', np.nan))
                     li_list.append(params.get('LI', np.nan))
-                    k_index_list.append(params.get('K Index', np.nan))
+                    pwat_list.append(params.get('Pwat', np.nan))
+                    #mixing_ratio_list.append(params.get('Mixing Ratio', np.nan))
+                    parcel_profile_list.append(params.get('Parcel Profile', np.nan))
 
-            mean_cape = np.nanmean(cape_list)
-            mean_cin = np.nanmean(cin_list)
+            mean_cape = np.nanmean(mu_cape_list)
+            mean_parcel = np.nanmean(mu_parcel_list)
             mean_li = np.nanmean(li_list)
-            mean_k_index = np.nanmean(k_index_list)
+            mean_pwat = np.nanmean(pwat_list)
+            #mean_mixing_ratio = np.nanmean(mixing_ratio_list)
+            mean_parcel_profile = np.nanmean(parcel_profile_list)
+
 
             tree.insert('', tk.END, values=(
                 f"Mean",
                 mean_cape,
-                mean_cin,
+                mean_parcel,
                 mean_li,
-                mean_k_index,
+                mean_pwat,
+                #mean_mixing_ratio,
+                mean_parcel_profile
             ))
     
     if title_var:  # Insert title row if title_var is not empty
