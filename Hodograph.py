@@ -10,8 +10,8 @@ import datetime
 import pandas as pd
 import time
 
-station = 'OAX'
-date = datetime.datetime(2014, 6, 17, 0)
+station = 'ILX'
+date = datetime.datetime(2006, 3, 13, 0)
 retries = 3
 for i in range(retries):
     try:
