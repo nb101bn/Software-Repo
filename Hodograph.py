@@ -100,7 +100,7 @@ def three_D_hodograph(u,v,levels, title='3D Hodograph'):
         print("Error: levels, u, and v arrays must have the same length.")
         return
 
-    #for i in range(len(levels_mag)):
+    #for i in range(len(levels_mag)):   
         #ax.quiver(0, 0, levels_mag[i], u_knots[i], v_knots[i], 0, arrow_length_ratio=0.1, color='blue')
 
     # Connect the vector tips with a line
