@@ -10,14 +10,15 @@ import datetime
 import pandas as pd
 import time
 
-station = 'ILX'
-date = datetime.datetime(2006, 3, 13, 0)
+station = 'OAX'
+date = datetime.datetime(2013, 6, 1, 12)
 retries = 3
 for i in range(retries):
     try:
         df = WyomingUpperAir.request_data(date, station)
     except Exception as e:
         print(f"couldn't gather data error: {e} attempt {i}")
+        time.sleep(5)
 print(df.columns)
 uw = df['u_wind'].values*units.knots
 vw = df['v_wind'].values*units.knots
@@ -71,10 +72,10 @@ def three_D_hodograph(u,v,levels, title='3D Hodograph'):
 
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
-    mask = levels>300*units.hPa
-    levels = levels[mask]
-    u = u[mask]
-    v = v[mask]
+    mask_300 = levels>300*units.hPa
+    levels = levels[mask_300]
+    u = u[mask_300]
+    v = v[mask_300]
     # Convert levels to numerical values for 3D plotting
     levels_mag = levels.to(units.hPa).magnitude
 
@@ -104,8 +105,40 @@ def three_D_hodograph(u,v,levels, title='3D Hodograph'):
         #ax.quiver(0, 0, levels_mag[i], u_knots[i], v_knots[i], 0, arrow_length_ratio=0.1, color='blue')
 
     # Connect the vector tips with a line
-    ax.plot(u_knots, v_knots, levels_mag, color='red', linewidth=2)
+    for lvl in range(len(levels)):
+        if levels[lvl] > 700 * units.hPa:
+            c = 'red'
+            mask_red = levels > 600 * units.hPa
+            ax.plot(u_knots[mask_red], v_knots[mask_red], levels_mag[mask_red], color=c, linewidth=2)
+        elif 500 * units.hPa < levels[lvl] <= 700 * units.hPa:
+            c = 'green'
+            mask_green = (levels < 700 * units.hPa) & (levels > 450 * units.hPa)
+            ax.plot(u_knots[mask_green], v_knots[mask_green], levels_mag[mask_green], color=c, linewidth=2)
+        elif levels[lvl] <= 500 * units.hPa:
+            c = 'purple'
+            mask_purple = levels < 500 * units.hPa
+            ax.plot(u_knots[mask_purple], v_knots[mask_purple], levels_mag[mask_purple], color=c, linewidth=2)
 
+    label_points = {
+    700 * units.hPa: '3km',
+    500 * units.hPa: '6km',
+    977 * units.hPa: '1km'
+}
+
+# Find the indices closest to the specified pressure levels and plot/label
+    for pressure, label in label_points.items():
+        # Find the index of the level closest to the target pressure
+        idx = np.argmin(np.abs(levels - pressure))
+        pressure_at_idx = levels_mag[idx]
+        u_at_idx = u_knots[idx]
+        v_at_idx = v_knots[idx]
+
+        # Plot a red dot at the point
+        ax.scatter(u_at_idx, v_at_idx, pressure_at_idx, color='black', s=50)
+
+        # Add a text label slightly offset from the point
+        ax.text(u_at_idx + 5, v_at_idx + 5, pressure_at_idx, label, color='black')
+    
     # Set axis labels
     ax.set_xlabel('Eastward Wind (knots)')
     ax.set_ylabel('Northward Wind (knots)')
