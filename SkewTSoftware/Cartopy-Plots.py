@@ -21,10 +21,10 @@ try:
     print(counties.head())
     print('\nColumns names in counties Geoframe:')
     print(counties.columns)
-    print(counties['FEATURECLA'])
+    print(counties['STATE_NAME'])
     cities = gpd.read_file(cities_path)
     selected_state = states[states['name']==state_name]
-    us_counies = counties[counties['adm0_a3']=='USA']
+    us_counies = counties[counties['STATE_NAME']==state_name]
     print('first few rows of us_counties geoframe:')
     print(us_counies.head())
     minx, miny, maxx, maxy = selected_state.total_bounds
