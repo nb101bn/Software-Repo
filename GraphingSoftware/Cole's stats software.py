@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import pickle
 #root = tk.Tk()
@@ -106,414 +107,447 @@ def preload_data(Base_Path_Dir, cache_file='preloaded_data.parquet'):
             print(f"Error saving to pickle cache: {pickle_e}")
     return preloaded_data
 
-base_dir = 'C:\\Users\\nathan\\Documents\\GitHub\\Software-Repo\\GraphingSoftware\\Datasets'
-script_dir = os.path.dirname(__file__)
-Full_Dir = os.path.join(script_dir, 'Datasets')
-all_data = preload_data(Full_Dir)
-print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12.xlsx']['sheet_data'])
-def line_plot(data_to_plot, titlename, unittype, sheet_names, filter=None):
-    max_data = []
-    min_data = []
-    x_positions = np.arange(len(sheet_names))
-    for sheet_name in sheet_names:
-        flattened_data = data_to_plot[sheet_name]
-        if filter is not None:
-            filtered_data = flattened_data[flattened_data>=filter]
-        else:
-            filtered_data = flattened_data
-        if filtered_data.size >0:
-            min_value = np.min(filtered_data)
-            max_value = np.max(filtered_data)
-            max_data.append(max_value)
-            min_data.append(min_value)
-        else:
-            print(f'Warning: No data available for sheet: {sheet_name} after filtering')
-    if min_data:
-        plt.clf
-        plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum')
-        plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum')
-        plt.title(titlename)
-        plt.ylabel(unittype)
-        plt.xlabel('time')
-        plt.xticks(x_positions, sheet_names, rotation=45, ha='right')
-        plt.legend()
-    else:
-        return print('Warning: No data to plot.')
+def load_excel_file_data(run_folder, filename, file_path):
+    """
+    Helper function to load data from all sheets of a single Excel file.
+    This function will be executed by each worker process.
 
-def Box_Whisker_preloaded(data_to_plot, titlename, unittype, sheet_names):
-    all_data_list = list(data_to_plot.values())
-    max_min_data = []
-    whisker_highs = []
-    whisker_lows = []
-    
-    for flattened_data in all_data_list:
-        min_data = np.min(flattened_data)
-        max_data = np.max(flattened_data)
-        max_min_data.append((min_data, max_data))
+    Args:
+        run_folder (str): The name of the run folder.
+        filename (str): The name of the Excel file.
+        file_path (str): The full path to the Excel file.
+
+    Returns:
+        tuple: A tuple containing (run_folder, filename, sheet_data_dict)
+               or (run_folder, filename, None) if an error occurs.
+    """
+    sheet_data = {}
+    try:
+        # Use pd.ExcelFile context manager for proper file closing
+        with pd.ExcelFile(file_path) as excel_file:
+            for sheet_name in excel_file.sheet_names:
+                # Read the sheet directly into a DataFrame, skipping the redundant parse call
+                df = pd.read_excel(excel_file, sheet_name=sheet_name, header=1)
+                data = df.to_numpy()
+                flattened_data = data.flatten()
+                sheet_data[sheet_name] = flattened_data
+        return run_folder, filename, sheet_data
+    except Exception as e:
+        print(f'Error loading data from {file_path}: {e}')
+        return run_folder, filename, None # Indicate failure for this file
+
+def preload_data_multiprocessing(Base_Path_Dir):
+    """
+    Preloads data from all Excel files within specified run folders
+    using multiprocessing for improved efficiency.
+
+    Args:
+        Base_Path_Dir (str): The base directory containing run folders with Excel files.
+
+    Returns:
+        dict: A nested dictionary containing the preloaded flattened data.
+              Structure: {run_folder: {filename: {sheet_name: flattened_numpy_array}}}
+    """
+    preloaded_data = {}
+    all_excel_files_info = []
+
+    # First, collect all Excel files and their paths to prepare tasks for the pool
+    for run_folder in os.listdir(Base_Path_Dir):
+        run_path = os.path.join(Base_Path_Dir, run_folder)
+        if os.path.isdir(run_path):
+            for filename in os.listdir(run_path):
+                if filename.endswith('.xlsx'):
+                    file_path = os.path.join(run_path, filename)
+                    all_excel_files_info.append((run_folder, filename, file_path))
+
+    # Use ProcessPoolExecutor to parallelize the loading of each Excel file
+    # max_workers is set to the number of CPU cores for a good balance.
+    with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        # Submit tasks to the executor. Each task loads one Excel file.
+        futures = [executor.submit(load_excel_file_data, rf, fn, fp)
+                   for rf, fn, fp in all_excel_files_info]
+
+        # Process results as they complete. as_completed yields futures in the order
+        # they finish, not the order they were submitted.
+        for future in as_completed(futures):
+            # Retrieve the result from the completed future
+            run_folder, filename, sheet_data = future.result()
+            if sheet_data is not None: # Check if the data was loaded successfully
+                if run_folder not in preloaded_data:
+                    preloaded_data[run_folder] = {}
+                preloaded_data[run_folder][filename] = sheet_data
+            else:
+                print(f"Warning: Failed to load data for '{filename}' in '{run_folder}'. Skipping this file.")
+
+    return preloaded_data
+
+# Example Usage (assuming you have a 'data' directory with your Excel files)
+# For demonstration, create dummy files if you don't have them
+if __name__ == '__main__':
+    script_dir = os.path.dirname(__file__)
+    Full_Dir = os.path.join(script_dir, 'Datasets')
+
+    print(f"\nStarting preloading from: {Full_Dir}")
+    all_data = preload_data_multiprocessing(Full_Dir)
+
+    print("\nPreloading complete. Structure of preloaded_data:")
+    for run_folder, files in all_data.items():
+        print(f"  {run_folder}/")
+        for filename, sheets in files.items():
+            print(f"    {filename}/")
+            for sheet_name, data_array in sheets.items():
+                print(f"      {sheet_name}: Data shape={data_array.shape}, first 5 elements={data_array[:5]}")
         
-        Q1 = np.percentile(flattened_data, 25)
-        Q2 = np.percentile(flattened_data, 75)
-        IQR = Q2-Q1
-        whisker_low = Q1-1.5*IQR
-        whisker_high = Q2+1.5*IQR
-        whisker_highs.append(whisker_high)
-        whisker_lows.append(whisker_low)
-    plt.clf
-    plt.boxplot(all_data_list, showfliers=False)
+    if all_data is not None:
+        #script_dir = os.path.dirname(__file__)
+        #Full_Dir = os.path.join(script_dir, 'Datasets')
+        #all_data = preload_data(Full_Dir)
+        #print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12.xlsx']['sheet_data'])
 
-    for idx, (min_value, max_value) in enumerate(max_min_data):
-        if min_value < min(whisker_lows):
-            min_value_plot = min(whisker_lows)
-            plt.scatter(idx+1, min_value_plot, color='red', zorder=5)
-            plt.text(idx+1, min_value_plot, f'{min_value}', color = 'black', ha='center', va='top', fontsize=10)
-        else:
-            plt.scatter(idx+1, min_value, color='red', zorder=5)
-        if max_value > max(whisker_highs):
-            max_value_plot = max(whisker_highs)
-            plt.scatter(idx+1, max_value_plot, color='green', zorder=5)
-            plt.text(idx+1, max_value_plot, f'{max_value}', color='black', ha='center', va='top', fontsize=10)
-        else:
-            plt.scatter(idx+1, max_value, color='green', zorder=5)
-    plt.ylim([min(whisker_lows), max(whisker_highs)])
-    plt.title(titlename)
-    plt.ylabel(unittype)
-    plt.xlabel('Time')
-    plt.xticks(range(1, len(sheet_names)+1), sheet_names, rotation=45)
+        def line_plot(data_to_plot, titlename, unittype, sheet_names, filter=None):
+            max_data = []
+            min_data = []
+            x_positions = np.arange(len(sheet_names))
+            for sheet_name in sheet_names:
+                flattened_data = data_to_plot[sheet_name]
+                if filter is not None:
+                    filtered_data = flattened_data[flattened_data>=filter]
+                else:
+                    filtered_data = flattened_data
+                if filtered_data.size >0:
+                    min_value = np.min(filtered_data)
+                    max_value = np.max(filtered_data)
+                    max_data.append(max_value)
+                    min_data.append(min_value)
+                else:
+                    print(f'Warning: No data available for sheet: {sheet_name} after filtering')
+            if min_data:
+                plt.clf
+                plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum')
+                plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum')
+                plt.title(titlename)
+                plt.ylabel(unittype)
+                plt.xlabel('time')
+                plt.xticks(x_positions, sheet_names, rotation=45, ha='right')
+                plt.legend()
+            else:
+                return print('Warning: No data to plot.')
 
-units = 'heat flux (W/m^2)'
-title = 'heat flux box and whisker'
-#Box_Whisker(path_to_file, title, units)
+        def Box_Whisker_preloaded(data_to_plot, titlename, unittype, sheet_names):
+            all_data_list = list(data_to_plot.values())
+            max_min_data = []
+            whisker_highs = []
+            whisker_lows = []
+            
+            for flattened_data in all_data_list:
+                min_data = np.min(flattened_data)
+                max_data = np.max(flattened_data)
+                max_min_data.append((min_data, max_data))
+                
+                Q1 = np.percentile(flattened_data, 25)
+                Q2 = np.percentile(flattened_data, 75)
+                IQR = Q2-Q1
+                whisker_low = Q1-1.5*IQR
+                whisker_high = Q2+1.5*IQR
+                whisker_highs.append(whisker_high)
+                whisker_lows.append(whisker_low)
+            plt.clf
+            plt.boxplot(all_data_list, showfliers=False)
 
-def single_variable_plot(notebook):
-    
-    tab = ttk.Frame(notebook)
-    notebook.add(tab, text='Single Variable Plots')
+            for idx, (min_value, max_value) in enumerate(max_min_data):
+                if min_value < min(whisker_lows):
+                    min_value_plot = min(whisker_lows)
+                    plt.scatter(idx+1, min_value_plot, color='red', zorder=5)
+                    plt.text(idx+1, min_value_plot, f'{min_value}', color = 'black', ha='center', va='top', fontsize=10)
+                else:
+                    plt.scatter(idx+1, min_value, color='red', zorder=5)
+                if max_value > max(whisker_highs):
+                    max_value_plot = max(whisker_highs)
+                    plt.scatter(idx+1, max_value_plot, color='green', zorder=5)
+                    plt.text(idx+1, max_value_plot, f'{max_value}', color='black', ha='center', va='top', fontsize=10)
+                else:
+                    plt.scatter(idx+1, max_value, color='green', zorder=5)
+            plt.ylim([min(whisker_lows), max(whisker_highs)])
+            plt.title(titlename)
+            plt.ylabel(unittype)
+            plt.xlabel('Time')
+            plt.xticks(range(1, len(sheet_names)+1), sheet_names, rotation=45)
 
-    selection_frame = ttk.LabelFrame(tab, text='Data Selection')
-    selection_frame.grid(row = 0, column=0, padx=10, pady=10, sticky='nsew')
-    plot_type_frame = ttk.LabelFrame(tab, text='Plot Type')
-    plot_type_frame.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
-    plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
-    plot_area_frame.grid(row=1, column = 0, columnspan=2, padx=10, pady=10, sticky='nsew')
-    tab.grid_columnconfigure(0, weight=1)
-    tab.grid_columnconfigure(1, weight=1)
-    tab.grid_rowconfigure(1, weight=1)
+        units = 'heat flux (W/m^2)'
+        title = 'heat flux box and whisker'
+        #Box_Whisker(path_to_file, title, units)
 
-    run_label = ttk.Label(selection_frame, text='Select Run:')
-    run_label.grid(row = 0, column=0, padx=5, pady=5, sticky='w')
-    run_var = tk.StringVar(root)
-    run_var.trace_add('write', lambda *args: update_files(tab, run_var, file_menu, file_var)) #update_files needs to be defined to update the plot area
-    run_options = list(all_data.keys())
-    run_menu = ttk.Combobox(selection_frame, textvariable=run_var, values=run_options)
-    run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+        def single_variable_plot(notebook):
+            
+            tab = ttk.Frame(notebook)
+            notebook.add(tab, text='Single Variable Plots')
 
-    file_label = ttk.Label(selection_frame, text="Select File:")
-    file_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-    file_var = tk.StringVar(tab)
-    #file_var.trace_add('write', update_sheets)
-    file_menu = ttk.Combobox(selection_frame, textvariable=file_var, values=[])
-    file_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+            selection_frame = ttk.LabelFrame(tab, text='Data Selection')
+            selection_frame.grid(row = 0, column=0, padx=10, pady=10, sticky='nsew')
+            plot_type_frame = ttk.LabelFrame(tab, text='Plot Type')
+            plot_type_frame.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+            plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
+            plot_area_frame.grid(row=1, column = 0, columnspan=2, padx=10, pady=10, sticky='nsew')
+            tab.grid_columnconfigure(0, weight=1)
+            tab.grid_columnconfigure(1, weight=1)
+            tab.grid_rowconfigure(1, weight=1)
 
-    #sheet_label = ttk.Label(selection_frame, text='Select Sheet:')
-    #sheet_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
-    #sheet_var = tk.StringVar(root)
-    #sheet_menu = ttk.Combobox(selection_frame, textvariable=sheet_var, values=[])
-    #sheet_menu.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
+            run_label = ttk.Label(selection_frame, text='Select Run:')
+            run_label.grid(row = 0, column=0, padx=5, pady=5, sticky='w')
+            run_var = tk.StringVar(root)
+            run_var.trace_add('write', lambda *args: update_files(tab, run_var, file_menu, file_var)) #update_files needs to be defined to update the plot area
+            run_options = list(all_data.keys())
+            run_menu = ttk.Combobox(selection_frame, textvariable=run_var, values=run_options)
+            run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
 
-    plot_type_label = ttk.Label(plot_type_frame, text='Select Plot Type:')
-    plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-    plot_type_var = tk.StringVar(value='line')
-    line_radio = ttk.Radiobutton(plot_type_frame, text='Line plot', variable=plot_type_var, value='line')
-    line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-    box_radio = ttk.Radiobutton(plot_type_frame, text='Box Plot', variable=plot_type_var, value='box')
-    box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            file_label = ttk.Label(selection_frame, text="Select File:")
+            file_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            file_var = tk.StringVar(tab)
+            #file_var.trace_add('write', update_sheets)
+            file_menu = ttk.Combobox(selection_frame, textvariable=file_var, values=[])
+            file_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
 
-    plot_button = ttk.Button(tab, text='Generate Plot',
-                              command= lambda: generate_plot(tab, run_var, file_var, plot_type_var, plot_area_frame))
-    plot_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
+            #sheet_label = ttk.Label(selection_frame, text='Select Sheet:')
+            #sheet_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            #sheet_var = tk.StringVar(root)
+            #sheet_menu = ttk.Combobox(selection_frame, textvariable=sheet_var, values=[])
+            #sheet_menu.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
 
-def double_variable_plot(notebook):
-    
-    tab = ttk.Frame(notebook)
-    notebook.add(tab, text='Two Variable Plots')
+            plot_type_label = ttk.Label(plot_type_frame, text='Select Plot Type:')
+            plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            plot_type_var = tk.StringVar(value='line')
+            line_radio = ttk.Radiobutton(plot_type_frame, text='Line plot', variable=plot_type_var, value='line')
+            line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            box_radio = ttk.Radiobutton(plot_type_frame, text='Box Plot', variable=plot_type_var, value='box')
+            box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
-    run_frame = ttk.LabelFrame(tab, text='Run')
-    run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+            plot_button = ttk.Button(tab, text='Generate Plot',
+                                    command= lambda: generate_plot(tab, run_var, file_var, plot_type_var, plot_area_frame))
+            plot_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
 
-    file_frame = ttk.LabelFrame(tab, text='Files')
-    file_frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+        def double_variable_plot(notebook):
+            
+            tab = ttk.Frame(notebook)
+            notebook.add(tab, text='Two Variable Plots')
 
-    plot_type_frame = ttk.LabelFrame(tab, text='Plot Types')
-    plot_type_frame.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
-    
-    plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
-    plot_area_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
-    
-    run_label = ttk.Label(run_frame, text='Select Run:')
-    run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-    run_var = tk.StringVar(tab)
-    run_options = list(all_data.keys())
-    run_var.trace_add('write', lambda *args: update_variables_two_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var))
-    run_menu = ttk.Combobox(run_frame, textvariable=run_var, values=run_options)
-    run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+            run_frame = ttk.LabelFrame(tab, text='Run')
+            run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
 
-    var1_label = ttk.Label(file_frame, text='Select File 1:')
-    var1_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-    var1_file_var = tk.StringVar(tab)
-    var1_menu = ttk.Combobox(file_frame, textvariable=var1_file_var, values=[])
-    var1_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+            file_frame = ttk.LabelFrame(tab, text='Files')
+            file_frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
 
-    var2_label = ttk.Label(file_frame, text='Select File 2:')
-    var2_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-    var2_file_var = tk.StringVar(tab)
-    var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
-    var2_menu.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            plot_type_frame = ttk.LabelFrame(tab, text='Plot Types')
+            plot_type_frame.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
+            
+            plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
+            plot_area_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+            
+            run_label = ttk.Label(run_frame, text='Select Run:')
+            run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            run_var = tk.StringVar(tab)
+            run_options = list(all_data.keys())
+            run_var.trace_add('write', lambda *args: update_variables_two_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var))
+            run_menu = ttk.Combobox(run_frame, textvariable=run_var, values=run_options)
+            run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
 
-    var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1')
-    var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-    var1_plot_type_var = tk.StringVar(value='line')
-    var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
-    var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-    var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
-    var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            var1_label = ttk.Label(file_frame, text='Select File 1:')
+            var1_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            var1_file_var = tk.StringVar(tab)
+            var1_menu = ttk.Combobox(file_frame, textvariable=var1_file_var, values=[])
+            var1_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
 
-    var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2')
-    var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
-    var2_plot_type_var = tk.StringVar(value='line')
-    var2_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
-    var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
-    var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
-    var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            var2_label = ttk.Label(file_frame, text='Select File 2:')
+            var2_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            var2_file_var = tk.StringVar(tab)
+            var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
+            var2_menu.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
-    plot_button = ttk.Button(tab, text='Generate Plot',
-                              command= lambda: generate_plot_two_vars(tab, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame))
-    plot_button.grid(row=3, column=0, columnspan=2, padx=10, pady=10)
+            var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1')
+            var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            var1_plot_type_var = tk.StringVar(value='line')
+            var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
+            var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
+            var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
-def triple_variable_plot(notebook):
-    tab = ttk.Frame(notebook)
-    notebook.add(tab, text='Triple Variable Plots')
+            var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2')
+            var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            var2_plot_type_var = tk.StringVar(value='line')
+            var2_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
+            var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
+            var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
 
-    run_frame = ttk.LabelFrame(tab, text='Run Selection')
-    run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+            plot_button = ttk.Button(tab, text='Generate Plot',
+                                    command= lambda: generate_plot_two_vars(tab, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame))
+            plot_button.grid(row=3, column=0, columnspan=2, padx=10, pady=10)
 
-    file_frame = ttk.LabelFrame(tab, text='File Selection')
-    file_frame.grid(row=1, column=0, columnspan=1, padx=10, pady=10, sticky='nsew')
+        def triple_variable_plot(notebook):
+            tab = ttk.Frame(notebook)
+            notebook.add(tab, text='Triple Variable Plots')
 
-    plot_type_frame = ttk.LabelFrame(tab, text='Plot Type Selection')
-    plot_type_frame.grid(row=1, column=1, columnspan=1, padx=10, pady=10, sticky='nsew')
+            run_frame = ttk.LabelFrame(tab, text='Run Selection')
+            run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
 
-    plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
-    plot_area_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+            file_frame = ttk.LabelFrame(tab, text='File Selection')
+            file_frame.grid(row=1, column=0, columnspan=1, padx=10, pady=10, sticky='nsew')
 
-    run_label = ttk.Label(run_frame, text='Select Run:')
-    run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-    run_var = tk.StringVar(tab)
-    run_options = list(all_data.keys())
-    run_var.trace_add('write', lambda *args: update_variables_three_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var, var3_menu, var3_file_var))
-    run_menu = ttk.Combobox(run_frame, textvariable=run_var, values=run_options)
-    run_menu.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
-    
-    var1_label = ttk.Label(file_frame, text='Select File 1:')
-    var1_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-    var1_file_var = tk.StringVar(tab)
-    var1_menu = ttk.Combobox(file_frame, textvariable=var1_file_var, values=[])
-    var1_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+            plot_type_frame = ttk.LabelFrame(tab, text='Plot Type Selection')
+            plot_type_frame.grid(row=1, column=1, columnspan=1, padx=10, pady=10, sticky='nsew')
 
-    var2_label = ttk.Label(file_frame, text='Select File 2:')
-    var2_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-    var2_file_var = tk.StringVar(tab)
-    var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
-    var2_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+            plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
+            plot_area_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
 
-    var3_label = ttk.Label(file_frame,text='Select File 3:')
-    var3_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
-    var3_file_var = tk.StringVar(tab)
-    var3_menu = ttk.Combobox(file_frame, textvariable=var3_file_var, values=[])
-    var3_menu.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
+            run_label = ttk.Label(run_frame, text='Select Run:')
+            run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            run_var = tk.StringVar(tab)
+            run_options = list(all_data.keys())
+            #run_var.trace_add('write', lambda *args: update_variables_three_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var, var3_menu, var3_file_var))
+            run_menu = ttk.Combobox(run_frame, textvariable=run_var, values=run_options)
+            run_menu.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
+            
+            var1_label = ttk.Label(file_frame, text='Select File 1:')
+            var1_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            var1_file_var = tk.StringVar(tab)
+            var1_menu = ttk.Combobox(file_frame, textvariable=var1_file_var, values=[])
+            var1_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
 
-    var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1:')
-    var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-    var1_plot_type_var = tk.StringVar(value='line')
-    var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
-    var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-    var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
-    var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            var2_label = ttk.Label(file_frame, text='Select File 2:')
+            var2_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            var2_file_var = tk.StringVar(tab)
+            var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
+            var2_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
 
-    var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2:')
-    var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
-    var2_plot_type_var = tk.StringVar(value='line')
-    var2_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
-    var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
-    var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
-    var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            var3_label = ttk.Label(file_frame,text='Select File 3:')
+            var3_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            var3_file_var = tk.StringVar(tab)
+            var3_menu = ttk.Combobox(file_frame, textvariable=var3_file_var, values=[])
+            var3_menu.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
 
-    var3_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 3:')
-    var3_plot_type_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
-    var3_plot_type_var = tk.StringVar(value='line')
-    var3_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var3_plot_type_var, value='line')
-    var3_line_radio.grid(row=1, column=2, padx=5, pady=5, sticky='w')
-    var3_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var3_plot_type_var, value='box')
-    var3_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
-    
+            var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1:')
+            var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            var1_plot_type_var = tk.StringVar(value='line')
+            var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
+            var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
+            var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
+            var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2:')
+            var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            var2_plot_type_var = tk.StringVar(value='line')
+            var2_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
+            var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
+            var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
 
-def update_variables_two_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var):
-    selected_run = run_var.get()
-    var1_menu['values'] = []
-    var1_file_var.set('')
-    var2_menu['values'] = []
-    var2_file_var.set('')
-    if selected_run and selected_run in all_data:
-        files = sorted(all_data[selected_run].keys())
-        var1_menu['values'] = files
-        var2_menu['values'] = files
-        if files:
-            var1_file_var.set(files[0])
-            var2_file_var.set(files[0])
-
-
-def update_files(parent, run_var, file_menu, file_var):
-    selected_run = run_var.get()
-    file_menu['values'] = []
-    file_var.set('')
-    #sheet_menu['values'] = []
-    #sheet_var.set('')
-
-    if selected_run and selected_run in all_data:
-        files = sorted(all_data[selected_run].keys())
-        file_menu['values'] = files
-        if files:
-            file_var.set(files[0])
-            #update_sheets()
-
-def update_sheets(parent, run_var, file_var):
-    selected_run = run_var.get()
-    selected_file = file_var.get()
-    #sheet_menu['values'] = []
-    #sheet_var.set('')
-    if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_file]:
-        sheets = sorted(all_data[selected_run][selected_file].keys())
-        #sheet_menu['values'] = sheets
-        #if sheets:
-            #sheet_var.set(sheets[0])
-
-def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame):
-    selected_run = run_var.get()
-    selected_file_1 = var1_file_var.get()
-    selected_file_2 = var2_file_var.get()
-    plot_type_1 = var1_plot_type_var.get()
-    plot_type_2 = var2_plot_type_var.get()
-    if selected_run and selected_file_1 and selected_file_2 and selected_run in all_data and selected_file_1 in all_data[selected_run] and selected_file_2 in all_data[selected_run]:
-        data_to_plot_1 = all_data[selected_run][selected_file_1]
-        data_to_plot_2 = all_data[selected_run][selected_file_2]
-        sheet_names_1 = list(data_to_plot_1['sheet_order'])
-        sheet_names_2 = list(data_to_plot_2['sheet_order'])
-        for widget in plot_area_frame.winfo_children():
-            widget.destroy()
-        if plot_type_1 == 'line':
-            line_plot(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
-        elif plot_type_1 =='box':
-            Box_Whisker_preloaded(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
-        if plot_type_2 == 'line':
-            line_plot(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
-        elif plot_type_2 == 'box':
-            Box_Whisker_preloaded(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
-        canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
-        canvas_widget = canvas.get_tk_widget()
-        canvas_widget.pack()
-        canvas.draw()
-    else:
-        print('Error: Invalid selection')
-
-def generate_plot(parent, run_var, file_var, plot_type_var, plot_area_frame):
-    selected_run = run_var.get()
-    selected_file = file_var.get()
-    plot_type = plot_type_var.get()
-
-    if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_run]:
-        data_to_plot = all_data[selected_run][selected_file]
-        sheet_names = list(data_to_plot['sheet_order'])
-        for widget in plot_area_frame.winfo_children():
-            widget.destroy()
-        if plot_type == 'line':
-            line_plot(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
-        elif plot_type == 'box':
-            Box_Whisker_preloaded(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
-        
-        canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
-        canvas_widget = canvas.get_tk_widget() 
-        canvas_widget.pack()
-        canvas.draw()
-    else:
-        print('Error: Invalid Selection')
-
-root = tk.Tk()
-root.title('Data Visulization')
-
-notebook = ttk.Notebook(root)
-notebook.pack(fill='both', expand=True)
-
-single_variable_plot(notebook)
-double_variable_plot(notebook)
-triple_variable_plot(notebook)
-
-root.mainloop()
+            var3_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 3:')
+            var3_plot_type_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+            var3_plot_type_var = tk.StringVar(value='line')
+            var3_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var3_plot_type_var, value='line')
+            var3_line_radio.grid(row=1, column=2, padx=5, pady=5, sticky='w')
+            var3_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var3_plot_type_var, value='box')
+            var3_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+            
 
 
-'''
-for Tabs in excel_file.sheet_names:
-    df = pd.read_excel(path_to_file, sheet_name=Tabs)
-    print(f'data from {Tabs}')
-    print(df)
-    print('\n')
+        def update_variables_two_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var):
+            selected_run = run_var.get()
+            var1_menu['values'] = []
+            var1_file_var.set('')
+            var2_menu['values'] = []
+            var2_file_var.set('')
+            if selected_run and selected_run in all_data:
+                files = sorted(all_data[selected_run].keys())
+                var1_menu['values'] = files
+                var2_menu['values'] = files
+                if files:
+                    var1_file_var.set(files[0])
+                    var2_file_var.set(files[0])
 
-options = excel_file.sheet_names
-selected_option = tk.StringVar()
-selected_option.set(options[0])
-drop_down = tk.OptionMenu(root, selected_option, *options)
-drop_down.pack(pady=20)
-def update_text():
-    text_box.delete(0, tk.END)
-    text_box.insert(0, selected_option.get())
-button = tk.Button(root, text='Show Selection', command=update_text)
-button.pack(pady=20)
-text_box = tk.Entry(root, width=40)
-text_box.pack(pady=20)
-update_text()
-print(excel_file.sheet_names)
-root.mainloop()
-#plt.show()
-'''
-'''
-whisker_lows = []
-whisker_highs = []
-plt.boxplot(all_data, showfliers=False)
-plt.plot(min_max_data)
-for data in all_data:
-    Q1 = np.percentile(data, 25)
-    Q2 = np.percentile(data, 75)
-    IQR = Q2-Q1
-    whisker_low = Q1-1.5*IQR
-    whisker_high = Q2+1.5*IQR
-    whisker_highs.append(whisker_high)
-    whisker_lows.append(whisker_low)
-for idx, (min_value, max_value) in enumerate(min_max_data):
-    if min_value < min(whisker_lows):
-        min_value_plot = min(whisker_lows)
-        plt.scatter(idx+1, min_value_plot, color='red', zorder=5)
-        plt.text(idx+1, min_value_plot, f'{min_value:.2f}', color='black', ha='center', va='top', fontsize=10)
-    else:
-        plt.scatter(idx+1, min_value, color='red', zorder=5)
-    if max_value > max(whisker_highs):
-        max_value_plot = max(whisker_highs)
-        plt.scatter(idx+1, max_value_plot, color='green', zorder=5)
-        plt.text(idx+1, max_value_plot, f'{max_value:.2f}', color='black', ha='center', va='top', fontsize=10) 
-    else:
-        plt.scatter(idx+1, max_value, color='red', zorder=5)
-plt.ylim([min(whisker_lows)-1, max(whisker_highs)+1])
-plt.title('Box and Whisker Plot')
-plt.ylabel('heat flux')
-plt.xlabel('sheet names')
-plt.xticks(range(1, len(excel_file.sheet_names)+1), excel_file.sheet_names, rotation=45)
-plt.show()
-'''
+
+        def update_files(parent, run_var, file_menu, file_var):
+            selected_run = run_var.get()
+            file_menu['values'] = []
+            file_var.set('')
+            #sheet_menu['values'] = []
+            #sheet_var.set('')
+
+            if selected_run and selected_run in all_data:
+                files = sorted(all_data[selected_run].keys())
+                file_menu['values'] = files
+                if files:
+                    file_var.set(files[0])
+                    #update_sheets()
+
+        def update_sheets(parent, run_var, file_var):
+            selected_run = run_var.get()
+            selected_file = file_var.get()
+            #sheet_menu['values'] = []
+            #sheet_var.set('')
+            if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_file]:
+                sheets = sorted(all_data[selected_run][selected_file].keys())
+                #sheet_menu['values'] = sheets
+                #if sheets:
+                    #sheet_var.set(sheets[0])
+
+        def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame):
+            selected_run = run_var.get()
+            selected_file_1 = var1_file_var.get()
+            selected_file_2 = var2_file_var.get()
+            plot_type_1 = var1_plot_type_var.get()
+            plot_type_2 = var2_plot_type_var.get()
+            if selected_run and selected_file_1 and selected_file_2 and selected_run in all_data and selected_file_1 in all_data[selected_run] and selected_file_2 in all_data[selected_run]:
+                data_to_plot_1 = all_data[selected_run][selected_file_1]
+                data_to_plot_2 = all_data[selected_run][selected_file_2]
+                sheet_names_1 = list(data_to_plot_1['sheet_order'])
+                sheet_names_2 = list(data_to_plot_2['sheet_order'])
+                for widget in plot_area_frame.winfo_children():
+                    widget.destroy()
+                if plot_type_1 == 'line':
+                    line_plot(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
+                elif plot_type_1 =='box':
+                    Box_Whisker_preloaded(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
+                if plot_type_2 == 'line':
+                    line_plot(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
+                elif plot_type_2 == 'box':
+                    Box_Whisker_preloaded(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
+                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
+                canvas_widget = canvas.get_tk_widget()
+                canvas_widget.pack()
+                canvas.draw()
+            else:
+                print('Error: Invalid selection')
+
+        def generate_plot(parent, run_var, file_var, plot_type_var, plot_area_frame):
+            selected_run = run_var.get()
+            selected_file = file_var.get()
+            plot_type = plot_type_var.get()
+
+            if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_run]:
+                data_to_plot = all_data[selected_run][selected_file]
+                sheet_names = list(data_to_plot['sheet_order'])
+                for widget in plot_area_frame.winfo_children():
+                    widget.destroy()
+                if plot_type == 'line':
+                    line_plot(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
+                elif plot_type == 'box':
+                    Box_Whisker_preloaded(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
+                
+                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
+                canvas_widget = canvas.get_tk_widget() 
+                canvas_widget.pack()
+                canvas.draw()
+            else:
+                print('Error: Invalid Selection')
+
+        root = tk.Tk()
+        root.title('Data Visulization')
+
+        notebook = ttk.Notebook(root)
+        notebook.pack(fill='both', expand=True)
+
+        single_variable_plot(notebook)
+        double_variable_plot(notebook)
+        triple_variable_plot(notebook)
+
+        root.mainloop()
