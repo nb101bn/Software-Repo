@@ -473,7 +473,7 @@ if __name__ == '__main__':
             run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
             run_var = tk.StringVar(tab)
             run_options = list(all_data.keys())
-            #run_var.trace_add('write', lambda *args: update_variables_three_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var, var3_menu, var3_file_var))
+            run_var.trace_add('write', lambda *args: update_variables_three_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var, var3_menu, var3_file_var))
             run_menu = ttk.Combobox(run_frame, textvariable=run_var, values=run_options)
             run_menu.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
             
@@ -495,29 +495,47 @@ if __name__ == '__main__':
             var3_menu = ttk.Combobox(file_frame, textvariable=var3_file_var, values=[])
             var3_menu.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
 
+            title_label = ttk.Label(file_frame, text='Title:') #label for title
+            title_label.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+            title_text = ttk.Entry(file_frame) #entry for title
+            title_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+            
+            units_label = ttk.Label(file_frame, text='Units:') #label for title
+            units_label.grid(row=4, column=0, padx=5, pady=5, sticky='w')
+            units_text = ttk.Entry(file_frame) #entry for title
+            units_text.grid(row=4, column=1, padx=5, pady=5, sticky='w')
+
             var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1:')
             var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
             var1_plot_type_var = tk.StringVar(value='line')
-            var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
+            var1_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
             var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-            var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
+            var1_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
             var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
             var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2:')
             var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
             var2_plot_type_var = tk.StringVar(value='line')
-            var2_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
+            var2_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
             var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
-            var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
+            var2_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
             var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
 
             var3_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 3:')
             var3_plot_type_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
             var3_plot_type_var = tk.StringVar(value='line')
-            var3_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var3_plot_type_var, value='line')
+            var3_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var3_plot_type_var, value='line')
             var3_line_radio.grid(row=1, column=2, padx=5, pady=5, sticky='w')
-            var3_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var3_plot_type_var, value='box')
+            var3_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var3_plot_type_var, value='box')
             var3_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+
+            plot_button = ttk.Button(tab, text='Generate Plot',
+                                    command= lambda: generate_plot_three_vars(tab, run_var, var1_file_var, var2_file_var, var3_file_var,
+                                                                             var1_plot_type_var, var2_plot_type_var, var3_plot_type_var,
+                                                                            title_text, units_text, plot_area_frame))
+            plot_button.grid(row=3, column=2, columnspan=2, padx=10, pady=10, sticky='e')
+            save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
+            save_button.grid(row = 3, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
             
         def update_variables_three_vars(parent, run_var, var1_menu, var1_file_var,
                                         var2_menu, var2_file_var,
@@ -526,6 +544,18 @@ if __name__ == '__main__':
             var1_menu['values'] = []
             var1_file_var.set('')
             var2_menu['values'] = []
+            var2_file_var.set('')
+            var3_menu['values'] = []
+            var3_file_var.set('')
+            if selected_run and selected_run in all_data:
+                files = sorted(all_data[selected_run].keys())
+                var1_menu['values'] = files
+                var2_menu['values'] = files
+                var3_menu['values'] = files
+                if files:
+                    var1_file_var.set(files[0])
+                    var2_file_var.set(files[0])
+                    var3_file_var.set(files[0])
 
         def update_variables_two_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var):
             selected_run = run_var.get()
@@ -593,6 +623,48 @@ if __name__ == '__main__':
                 elif plot_type_2 == 'box':
                     Box_Whisker_preloaded(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
                 canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
+                canvas_widget = canvas.get_tk_widget()
+                canvas_widget.pack()
+                canvas.draw()
+            else:
+                print('Error: Invalid selection')
+
+        def generate_plot_three_vars(parent, run_var, var1_file_var, var2_file_var, var3_file_var, 
+                                     var1_plot_type, var2_plot_type, var3_plot_type,
+                                     title_var, unit_var, plot_frame):
+            selected_run = run_var.get()
+            selected_file_1 = var1_file_var.get()
+            selected_file_2 = var2_file_var.get()
+            selected_file_3 = var3_file_var.get()
+            selected_title = title_var.get()
+            selected_units = unit_var.get()
+            plot_type_1 = var1_plot_type.get()
+            plot_type_2 = var2_plot_type.get()
+            plot_type_3 = var3_plot_type.get()
+            for widget in plot_frame.winfo_children():
+                widget.destroy
+            plt.close('all')
+            plt.clf()
+            if selected_run and selected_file_1 and selected_file_2 and selected_file_3 and selected_run in all_data and selected_file_1 in all_data[selected_run] and selected_file_2 in all_data[selected_run] and selected_file_3 in all_data[selected_run]:
+                data_to_plot_1 = all_data[selected_run][selected_file_1]
+                data_to_plot_2 = all_data[selected_run][selected_file_2]
+                data_to_plot_3 = all_data[selected_run][selected_file_3]
+                sheet_names_1 = list(data_to_plot_1.keys())
+                sheet_names_2 = list(data_to_plot_2.keys())
+                sheet_names_3 = list(data_to_plot_3.keys())
+                if plot_type_1 == 'line':
+                    line_plot(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
+                elif plot_type_1 =='box':
+                    Box_Whisker_preloaded(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
+                if plot_type_2 == 'line':
+                    line_plot(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
+                elif plot_type_2 == 'box':
+                    Box_Whisker_preloaded(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
+                if plot_type_3 == 'line':
+                    line_plot(data_to_plot_3, f'{selected_title}', f'{selected_units}', sheet_names_3)
+                elif plot_type_3 == 'box':
+                    Box_Whisker_preloaded(data_to_plot_3, f'{selected_title}', f'{selected_units}', sheet_names_3)
+                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_frame)
                 canvas_widget = canvas.get_tk_widget()
                 canvas_widget.pack()
                 canvas.draw()
