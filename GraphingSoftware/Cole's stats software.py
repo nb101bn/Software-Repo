@@ -9,6 +9,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import pickle
 from PIL import Image, ImageGrab
 from tkinter import filedialog
+import collections
 
 def preload_data_1(Base_Path_Dir):
     preloaded_data = {}
@@ -108,9 +109,33 @@ def load_excel_file_data(run_folder, filename, file_path):
                 # specifying the range and header row relative to that range.
                 # 'A2:YH550' is the desired range.
                 # 'header=0' means the first row of the loaded range (A2) is the header.
+                # To read 'A2:YH550', you need to skip 1 row (A1) and read 549 more rows (from A2 to A550 inclusive).
+                # The total number of rows from A2 to A550 is 550 - 2 + 1 = 549.
+                # However, your original nrows=551 would read more than A550 if skiprows=1 is used.
+                # Let's assume you want to read A2 through YH550, meaning 549 rows starting from A2.
+                # If 'header=0' is used with a 'range' parameter, it refers to the header within that range.
+                # Since pd.read_excel doesn't have a direct 'range' argument like 'openpyxl.load_workbook',
+                # you simulate it using skiprows and nrows.
+                # 'skiprows=1' skips the first row (A1).
+                # 'nrows=549' will read 549 rows starting from A2, effectively reading A2 to A550.
                 df = pd.read_excel(excel_file, sheet_name=sheet_name,
-                                   skiprows=1,
-                                   nrows=551) # Specify the desired range
+                                   header=None, # No header row, we'll slice it if needed or assume data starts from A2
+                                   skiprows=1,  # Skip A1
+                                   nrows=549)   # Read 549 rows (A2 to A550)
+
+                # If you need to treat A2 as the header, you'd then do:
+                # df.columns = df.iloc[0]
+                # df = df[1:].reset_index(drop=True)
+
+                # To mimic the range A2:YH550, we first read starting from A2.
+                # Then, to get columns up to YH (which is column 2333, assuming 0-indexed A=0, B=1, ... YH=2333),
+                # you might need to slice columns if the file has more columns.
+                # Assuming your files always have at least YH columns within the relevant data.
+                # If 'YH' is truly a specific column, you'd need its index.
+                # For simplicity, assuming you want all columns in the read DataFrame or
+                # that the Excel files only contain data up to YH within the A2:YH550 range.
+                # If you strictly need to slice columns, you'd do:
+                # df = df.iloc[:, :target_column_index_for_YH + 1] # Assuming YH is the last column you want
 
                 data = df.to_numpy()
                 flattened_data = data.flatten()
@@ -132,36 +157,69 @@ def preload_data_multiprocessing(Base_Path_Dir):
         dict: A nested dictionary containing the preloaded flattened data.
               Structure: {run_folder: {filename: {sheet_name: flattened_numpy_array}}}
     """
-    preloaded_data = {}
+    pkl_file_path = os.path.join(Base_Path_Dir, 'preloaded_data.pkl')
+
+    # Check if the .pkl file exists
+    if os.path.exists(pkl_file_path):
+        print(f"Loading data from existing pickle file: {pkl_file_path}")
+        try:
+            with open(pkl_file_path, 'rb') as f:
+                # Using collections.OrderedDict if you need explicit ordering for older Python versions
+                # For Python 3.7+, a regular dict preserves insertion order.
+                preloaded_data = pickle.load(f)
+            print("Data loaded successfully from pickle file.")
+            return preloaded_data
+        except Exception as e:
+            print(f"Error loading pickle file ({e}). Re-parsing data.")
+
+    print("Pickle file not found or corrupted. Parsing Excel files...")
+    preloaded_data_raw = {} # Use a temporary dictionary to build the data
     all_excel_files_info = []
 
     # First, collect all Excel files and their paths to prepare tasks for the pool
-    for run_folder in os.listdir(Base_Path_Dir):
+    # Sort run_folders and filenames to ensure consistent order
+    run_folders = sorted([d for d in os.listdir(Base_Path_Dir) if os.path.isdir(os.path.join(Base_Path_Dir, d))])
+
+    for run_folder in run_folders:
         run_path = os.path.join(Base_Path_Dir, run_folder)
-        if os.path.isdir(run_path):
-            for filename in os.listdir(run_path):
-                if filename.endswith('.xlsx'):
-                    file_path = os.path.join(run_path, filename)
-                    all_excel_files_info.append((run_folder, filename, file_path))
+        filenames = sorted([f for f in os.listdir(run_path) if f.endswith('.xlsx')])
+        for filename in filenames:
+            file_path = os.path.join(run_path, filename)
+            all_excel_files_info.append((run_folder, filename, file_path))
 
     # Use ProcessPoolExecutor to parallelize the loading of each Excel file
-    # max_workers is set to the number of CPU cores for a good balance.
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-        # Submit tasks to the executor. Each task loads one Excel file.
         futures = [executor.submit(load_excel_file_data, rf, fn, fp)
                    for rf, fn, fp in all_excel_files_info]
 
-        # Process results as they complete. as_completed yields futures in the order
-        # they finish, not the order they were submitted.
         for future in as_completed(futures):
-            # Retrieve the result from the completed future
             run_folder, filename, sheet_data = future.result()
-            if sheet_data is not None: # Check if the data was loaded successfully
-                if run_folder not in preloaded_data:
-                    preloaded_data[run_folder] = {}
-                preloaded_data[run_folder][filename] = sheet_data
+            if sheet_data is not None:
+                if run_folder not in preloaded_data_raw:
+                    preloaded_data_raw[run_folder] = {}
+                preloaded_data_raw[run_folder][filename] = sheet_data
             else:
                 print(f"Warning: Failed to load data for '{filename}' in '{run_folder}'. Skipping this file.")
+
+    # Now, explicitly create the final ordered dictionary from the raw data
+    # This step is crucial for guaranteed order if you're concerned about it,
+    # especially for the top-level 'run_folder' keys.
+    # For sub-dictionaries (filenames and sheet_names), they are populated
+    # in the order they are processed within load_excel_file_data and the loop above.
+    preloaded_data = {}
+    for run_folder in sorted(preloaded_data_raw.keys()):
+        preloaded_data[run_folder] = {}
+        for filename in sorted(preloaded_data_raw[run_folder].keys()):
+            preloaded_data[run_folder][filename] = preloaded_data_raw[run_folder][filename]
+
+
+    # Save the preloaded data to a .pkl file
+    try:
+        with open(pkl_file_path, 'wb') as f:
+            pickle.dump(preloaded_data, f)
+        print(f"Data successfully saved to pickle file: {pkl_file_path}")
+    except Exception as e:
+        print(f"Error saving data to pickle file ({e}).")
 
     return preloaded_data
 
@@ -192,6 +250,7 @@ if __name__ == '__main__':
             max_data = []
             min_data = []
             x_positions = np.arange(len(sheet_names))
+            plt.figure(figsize=(10,10))
             for sheet_name in sheet_names:
                 flattened_data = data_to_plot[sheet_name]
                 if filter is not None:
