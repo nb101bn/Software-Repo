@@ -7,32 +7,9 @@ import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import pickle
-#root = tk.Tk()
-#root.title("Window")
-#root.geometry("400x300")
-'''
-plot = plt.figure(figsize=(150,210))
-path_to_file = 'C:\\Users\\natha\\Software\\GraphingSoftware\\Datasets\\Run1\\Reflectivity_OVER20dBZ_Level12.xlsx'
-excel_file = pd.ExcelFile(path_to_file)
-all_data = []
-min_max_data = []
+from PIL import Image, ImageGrab
+from tkinter import filedialog
 
-for tabs in excel_file.sheet_names:
-    df = pd.read_excel(path_to_file, sheet_name=tabs, header=1)
-    data = df.to_numpy()
-    flattened_data = data.flatten()
-    min_value = np.min(flattened_data[flattened_data>=20])
-    max_value = np.max(flattened_data)
-    min_max_data.append((min_value, max_value))
-    print(data.shape)
-    all_data.append(flattened_data)
-plt.plot(min_max_data)
-plt.title('Min Max Line Plots')
-plt.ylabel('Reflectivity dBz')
-plt.xlabel('sheet names')
-plt.xticks(range(1, len(excel_file.sheet_names)+1), excel_file.sheet_names, rotation=45)
-plt.show()
-'''
 def preload_data_1(Base_Path_Dir):
     preloaded_data = {}
     for run_folder in os.listdir(Base_Path_Dir):
@@ -222,7 +199,6 @@ if __name__ == '__main__':
                 else:
                     print(f'Warning: No data available for sheet: {sheet_name} after filtering')
             if min_data:
-                plt.clf
                 plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum')
                 plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum')
                 plt.title(titlename)
@@ -251,31 +227,36 @@ if __name__ == '__main__':
                 whisker_high = Q2+1.5*IQR
                 whisker_highs.append(whisker_high)
                 whisker_lows.append(whisker_low)
-            plt.clf
             plt.boxplot(all_data_list, showfliers=False)
 
             for idx, (min_value, max_value) in enumerate(max_min_data):
                 if min_value < min(whisker_lows):
                     min_value_plot = min(whisker_lows)
                     plt.scatter(idx+1, min_value_plot, color='red', zorder=5)
-                    plt.text(idx+1, min_value_plot, f'{min_value}', color = 'black', ha='center', va='top', fontsize=10)
+                    plt.text(idx+1, min_value_plot+(max(whisker_highs)/9), f'{min_value}', color = 'black', ha='center', va='top', fontsize=6, rotation = 45)
                 else:
                     plt.scatter(idx+1, min_value, color='red', zorder=5)
                 if max_value > max(whisker_highs):
                     max_value_plot = max(whisker_highs)
                     plt.scatter(idx+1, max_value_plot, color='green', zorder=5)
-                    plt.text(idx+1, max_value_plot, f'{max_value}', color='black', ha='center', va='top', fontsize=10)
+                    plt.text(idx+1, max_value_plot+(max_value_plot/9), f'{max_value}', color='black', ha='center', va='top', fontsize=6, rotation = 45)
                 else:
                     plt.scatter(idx+1, max_value, color='green', zorder=5)
             plt.ylim([min(whisker_lows), max(whisker_highs)])
             plt.title(titlename)
             plt.ylabel(unittype)
             plt.xlabel('Time')
-            plt.xticks(range(1, len(sheet_names)+1), sheet_names, rotation=45)
+            plt.xticks(range(1, len(sheet_names)+1), sheet_names, fontsize=6, rotation=45)
 
-        units = 'heat flux (W/m^2)'
-        title = 'heat flux box and whisker'
-        #Box_Whisker(path_to_file, title, units)
+        def save_plot():
+            """
+            Saves the current plot to a file.
+            """
+            filename = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png"), ("All files", "*.*")])
+            if filename:
+                plt.savefig(filename)  # Save the plot
+                print(f"Plot saved to {filename}")
+
 
         def single_variable_plot(notebook):
             
@@ -307,6 +288,16 @@ if __name__ == '__main__':
             file_menu = ttk.Combobox(selection_frame, textvariable=file_var, values=[])
             file_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
 
+            title_label = ttk.Label(selection_frame, text='Title:') #label for title
+            title_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            title_text = ttk.Entry(selection_frame) #entry for title
+            title_text.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            
+            units_label = ttk.Label(selection_frame, text='Units:') #label for title
+            units_label.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+            units_text = ttk.Entry(selection_frame) #entry for title
+            units_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+
             #sheet_label = ttk.Label(selection_frame, text='Select Sheet:')
             #sheet_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
             #sheet_var = tk.StringVar(root)
@@ -322,8 +313,10 @@ if __name__ == '__main__':
             box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
             plot_button = ttk.Button(tab, text='Generate Plot',
-                                    command= lambda: generate_plot(tab, run_var, file_var, plot_type_var, plot_area_frame))
-            plot_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
+                                    command= lambda: generate_plot(tab, run_var, file_var, title_text, units_text, plot_type_var, plot_area_frame))
+            plot_button.grid(row=2, column=2, columnspan=2, padx=10, pady=10, sticky='e')
+            save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
+            save_button.grid(row = 2, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
 
         def double_variable_plot(notebook):
             
@@ -362,25 +355,38 @@ if __name__ == '__main__':
             var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
             var2_menu.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
+            title_label = ttk.Label(file_frame, text='Title:') #label for title
+            title_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            title_text = ttk.Entry(file_frame) #entry for title
+            title_text.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            
+            units_label = ttk.Label(file_frame, text='Units:') #label for title
+            units_label.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+            units_text = ttk.Entry(file_frame) #entry for title
+            units_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+
             var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1')
             var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
             var1_plot_type_var = tk.StringVar(value='line')
-            var1_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
+            var1_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var1_plot_type_var, value='line')
             var1_line_radio.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-            var1_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
+            var1_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
             var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
             var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2')
             var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
             var2_plot_type_var = tk.StringVar(value='line')
-            var2_line_radio = tk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
+            var2_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
             var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
-            var2_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
+            var2_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
             var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
 
             plot_button = ttk.Button(tab, text='Generate Plot',
-                                    command= lambda: generate_plot_two_vars(tab, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame))
-            plot_button.grid(row=3, column=0, columnspan=2, padx=10, pady=10)
+                                    command= lambda: generate_plot_two_vars(tab, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, 
+                                                                            title_text, units_text, plot_area_frame))
+            plot_button.grid(row=3, column=2, columnspan=2, padx=10, pady=10, sticky='e')
+            save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
+            save_button.grid(row = 3, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
 
         def triple_variable_plot(notebook):
             tab = ttk.Frame(notebook)
@@ -490,27 +496,31 @@ if __name__ == '__main__':
                 #if sheets:
                     #sheet_var.set(sheets[0])
 
-        def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, plot_area_frame):
+        def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, title_var, unit_var, plot_area_frame):
             selected_run = run_var.get()
             selected_file_1 = var1_file_var.get()
             selected_file_2 = var2_file_var.get()
+            selected_title = title_var.get()
+            selected_units = unit_var.get()
             plot_type_1 = var1_plot_type_var.get()
             plot_type_2 = var2_plot_type_var.get()
             if selected_run and selected_file_1 and selected_file_2 and selected_run in all_data and selected_file_1 in all_data[selected_run] and selected_file_2 in all_data[selected_run]:
                 data_to_plot_1 = all_data[selected_run][selected_file_1]
                 data_to_plot_2 = all_data[selected_run][selected_file_2]
-                sheet_names_1 = list(data_to_plot_1['sheet_order'])
-                sheet_names_2 = list(data_to_plot_2['sheet_order'])
+                sheet_names_1 = list(data_to_plot_1.keys())
+                sheet_names_2 = list(data_to_plot_2.keys())
                 for widget in plot_area_frame.winfo_children():
                     widget.destroy()
+                plt.close('all')
+                plt.clf()
                 if plot_type_1 == 'line':
-                    line_plot(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
+                    line_plot(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
                 elif plot_type_1 =='box':
-                    Box_Whisker_preloaded(data_to_plot_1['sheet_data'], f'{selected_run}', 'units', sheet_names_1)
+                    Box_Whisker_preloaded(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
                 if plot_type_2 == 'line':
-                    line_plot(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
+                    line_plot(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
                 elif plot_type_2 == 'box':
-                    Box_Whisker_preloaded(data_to_plot_2['sheet_data'], f'{selected_run}', 'units', sheet_names_2)
+                    Box_Whisker_preloaded(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
                 canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
                 canvas_widget = canvas.get_tk_widget()
                 canvas_widget.pack()
@@ -518,25 +528,28 @@ if __name__ == '__main__':
             else:
                 print('Error: Invalid selection')
 
-        def generate_plot(parent, run_var, file_var, plot_type_var, plot_area_frame):
+        def generate_plot(parent, run_var, file_var, title_var, unit_var, plot_type_var, plot_area_frame):
             selected_run = run_var.get()
             selected_file = file_var.get()
+            selected_title = title_var.get()
+            selected_units = unit_var.get()
             plot_type = plot_type_var.get()
-
+            for widget in plot_area_frame.winfo_children():
+                widget.destroy() #destroy previous widgets
+            plt.close('all')
+            plt.clf()
             if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_run]:
                 data_to_plot = all_data[selected_run][selected_file]
-                sheet_names = list(data_to_plot['sheet_order'])
-                for widget in plot_area_frame.winfo_children():
-                    widget.destroy()
+                sheet_names = list(data_to_plot.keys())
                 if plot_type == 'line':
-                    line_plot(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
+                    line_plot(data_to_plot, f'{selected_title}', f'{selected_units}', sheet_names)
                 elif plot_type == 'box':
-                    Box_Whisker_preloaded(data_to_plot['sheet_data'], f'{selected_run}-{selected_file}', 'units', sheet_names)
+                    Box_Whisker_preloaded(data_to_plot, f'{selected_title}', f'{selected_units}', sheet_names)
                 
-                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
-                canvas_widget = canvas.get_tk_widget() 
-                canvas_widget.pack()
-                canvas.draw()
+                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame) #create canvas
+                canvas_widget = canvas.get_tk_widget() #get canvas widget
+                canvas_widget.pack() #pack canvas widget
+                canvas.draw() #draw canvas
             else:
                 print('Error: Invalid Selection')
 
