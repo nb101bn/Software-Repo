@@ -86,7 +86,8 @@ def preload_data(Base_Path_Dir, cache_file='preloaded_data.parquet'):
 
 def load_excel_file_data(run_folder, filename, file_path):
     """
-    Helper function to load data from all sheets of a single Excel file.
+    Helper function to load data from all sheets of a single Excel file,
+    parsing only a specific range.
     This function will be executed by each worker process.
 
     Args:
@@ -103,8 +104,14 @@ def load_excel_file_data(run_folder, filename, file_path):
         # Use pd.ExcelFile context manager for proper file closing
         with pd.ExcelFile(file_path) as excel_file:
             for sheet_name in excel_file.sheet_names:
-                # Read the sheet directly into a DataFrame, skipping the redundant parse call
-                df = pd.read_excel(excel_file, sheet_name=sheet_name, header=1)
+                # Read the sheet directly into a DataFrame,
+                # specifying the range and header row relative to that range.
+                # 'A2:YH550' is the desired range.
+                # 'header=0' means the first row of the loaded range (A2) is the header.
+                df = pd.read_excel(excel_file, sheet_name=sheet_name,
+                                   skiprows=1,
+                                   nrows=551) # Specify the desired range
+
                 data = df.to_numpy()
                 flattened_data = data.flatten()
                 sheet_data[sheet_name] = flattened_data
