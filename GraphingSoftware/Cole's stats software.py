@@ -204,7 +204,7 @@ if __name__ == '__main__':
                 plt.title(titlename)
                 plt.ylabel(unittype)
                 plt.xlabel('time')
-                plt.xticks(x_positions, sheet_names, rotation=45, ha='right')
+                plt.xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
                 plt.legend()
             else:
                 return print('Warning: No data to plot.')
@@ -214,7 +214,7 @@ if __name__ == '__main__':
             max_min_data = []
             whisker_highs = []
             whisker_lows = []
-            
+            plt.figure(figsize=(10, 10))
             for flattened_data in all_data_list:
                 min_data = np.min(flattened_data)
                 max_data = np.max(flattened_data)
@@ -228,22 +228,21 @@ if __name__ == '__main__':
                 whisker_highs.append(whisker_high)
                 whisker_lows.append(whisker_low)
             plt.boxplot(all_data_list, showfliers=False)
-
             for idx, (min_value, max_value) in enumerate(max_min_data):
                 if min_value < min(whisker_lows):
                     min_value_plot = min(whisker_lows)
                     plt.scatter(idx+1, min_value_plot, color='red', zorder=5)
-                    plt.text(idx+1, min_value_plot+(max(whisker_highs)/9), f'{min_value}', color = 'black', ha='center', va='top', fontsize=6, rotation = 45)
+                    plt.text(idx+1, min_value_plot+(max(whisker_highs)/15), f'{min_value}', color = 'black', ha='center', va='top', fontsize=6, rotation = 45)
                 else:
                     plt.scatter(idx+1, min_value, color='red', zorder=5)
-                if max_value > max(whisker_highs):
-                    max_value_plot = max(whisker_highs)
+                if max_value > (max(whisker_highs)+(max(whisker_highs)/4)):
+                    max_value_plot = max(whisker_highs)+(max(whisker_highs)/4)
                     plt.scatter(idx+1, max_value_plot, color='green', zorder=5)
-                    plt.text(idx+1, max_value_plot+(max_value_plot/9), f'{max_value}', color='black', ha='center', va='top', fontsize=6, rotation = 45)
+                    plt.text(idx+1, max_value_plot+(max_value_plot/14), f'{max_value}', color='black', ha='center', va='top', fontsize=6, rotation = 45)
                 else:
                     plt.scatter(idx+1, max_value, color='green', zorder=5)
-            plt.ylim([min(whisker_lows), max(whisker_highs)])
-            plt.title(titlename)
+            plt.ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
+            plt.title(titlename, pad=25)
             plt.ylabel(unittype)
             plt.xlabel('Time')
             plt.xticks(range(1, len(sheet_names)+1), sheet_names, fontsize=6, rotation=45)
@@ -454,7 +453,13 @@ if __name__ == '__main__':
             var3_box_radio = tk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var3_plot_type_var, value='box')
             var3_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
             
-
+        def update_variables_three_vars(parent, run_var, var1_menu, var1_file_var,
+                                        var2_menu, var2_file_var,
+                                        var3_menu, var3_file_var):
+            selected_run = run_var.get()
+            var1_menu['values'] = []
+            var1_file_var.set('')
+            var2_menu['values'] = []
 
         def update_variables_two_vars(parent, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var):
             selected_run = run_var.get()
