@@ -11,79 +11,6 @@ from PIL import Image, ImageGrab
 from tkinter import filedialog
 import collections
 
-def preload_data_1(Base_Path_Dir):
-    preloaded_data = {}
-    for run_folder in os.listdir(Base_Path_Dir):
-        run_path = os.path.join(Base_Path_Dir, run_folder)
-        if os.path.isdir(run_path):
-            preloaded_data[run_folder] = {}
-            for filename in os.listdir(run_path):
-                if filename.endswith('.xlsx'):
-                    file_path = os.path.join(run_path, filename)
-                    preloaded_data[run_folder][filename] = {}
-                    try:
-                        excel_file = pd.ExcelFile(file_path)
-                        sheet_data = {}
-                        for sheet_name in excel_file.sheet_names:
-                            df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
-                            print(f'sheet: {sheet_name}, DataFrame:\n{df}')
-                            df = excel_file.parse(sheet_name, header=1)
-                            data = df.to_numpy()
-                            print(f'sheet: {sheet_name}, Np Array:\n: {data}')
-                            flattened_data = data.flatten()
-                            sheet_data[sheet_name] = flattened_data
-                        preloaded_data[run_folder][filename] = sheet_data
-                    except Exception as e:
-                        print(f'Error loading data from {file_path}: {e}')
-    return preloaded_data
-
-def preload_data(Base_Path_Dir, cache_file='preloaded_data.parquet'):
-    if os.path.exists(cache_file):
-        try:
-            return pd.read_parquet(cache_file).to_dict()
-        except Exception as e:
-            print(f'Error loading from parquet cache: {e}, attempting to lead from pickle cache.')
-            try:
-                with open('preloaded_data.pkl', 'rb') as f:
-                    return pickle.load(f)
-            except Exception as e2:
-                print(f"Error loading from pickle cache: {e2}. Re-loading from excel files.")
-    
-    preloaded_data = {}
-    for run_folder in os.listdir(Base_Path_Dir):
-        run_path = os.path.join(Base_Path_Dir, run_folder)
-        if os.path.isdir(run_path):
-            preloaded_data[run_folder] = {}
-            for filename in os.listdir(run_path):
-                if filename.endswith('.xlsx'):
-                    file_path = os.path.join(run_path, filename)
-                    print(f"Processing: {file_path}") #add print statement
-                    preloaded_data[run_folder][filename] = {'sheet_data': {}, 'sheet_order': []}
-                    try:
-                        excel_file = pd.ExcelFile(file_path)
-                        sheet_names = excel_file.sheet_names
-                        preloaded_data[run_folder][filename]['sheet_order'] = sheet_names
-                        for sheet_name in sheet_names:
-                            try:
-                                df = excel_file.parse(sheet_name, header=1)
-                                data = df.to_numpy()
-                                flattened_data = data.flatten()
-                                preloaded_data[run_folder][filename]['sheet_data'][sheet_name] = flattened_data
-                            except Exception as sheet_e:
-                                print(f"Error processing sheet {sheet_name} in {file_path}: {sheet_e}")
-                    except Exception as file_e:
-                        print(f"Error processing file {file_path}: {file_e}")
-
-    try:
-        pd.DataFrame(preloaded_data).to_parquet(cache_file)
-    except Exception as parquet_e:
-        print(f"Error saving to parquet cache: {parquet_e}")
-        try:
-            with open("preloaded_data.pkl", "wb") as f:
-                pickle.dump(preloaded_data, f)
-        except Exception as pickle_e:
-            print(f"Error saving to pickle cache: {pickle_e}")
-    return preloaded_data
 
 def load_excel_file_data(run_folder, filename, file_path):
     """
@@ -246,7 +173,7 @@ if __name__ == '__main__':
         #all_data = preload_data(Full_Dir)
         #print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12.xlsx']['sheet_data'])
 
-        def line_plot(data_to_plot, titlename, unittype, sheet_names, filter=None):
+        def line_plot(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None, filter=None):
             max_data = []
             min_data = []
             x_positions = np.arange(len(sheet_names))
@@ -275,7 +202,7 @@ if __name__ == '__main__':
             else:
                 return print('Warning: No data to plot.')
 
-        def Box_Whisker_preloaded(data_to_plot, titlename, unittype, sheet_names):
+        def Box_Whisker_preloaded(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None):
             all_data_list = list(data_to_plot.values())
             max_min_data = []
             whisker_highs = []
@@ -361,6 +288,16 @@ if __name__ == '__main__':
             units_label.grid(row=3, column=0, padx=5, pady=5, sticky='w')
             units_text = ttk.Entry(selection_frame) #entry for title
             units_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+
+            max_label = ttk.Label(selection_frame, text='Maximum Limit:')
+            max_label.grid(row=4, column=0, padx=5, pady=5, sticky='w')
+            max_text = ttk.Entry(selection_frame)
+            max_text.grid(row=4, column=1, padx=5, pady=5, sticky='w')
+
+            min_label = ttk.Label(selection_frame, text='Minimum Limit:')
+            min_label.grid(row=5, column=0, padx=5, pady=5, sticky='w')
+            min_text = ttk.Entry(selection_frame)
+            min_text.grid(row=5, column=1, padx=5, pady=5, sticky='w')
 
             #sheet_label = ttk.Label(selection_frame, text='Select Sheet:')
             #sheet_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
