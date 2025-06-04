@@ -1,0 +1,9 @@
+numpy>=1.21.0
+matplotlib>=3.4.0
+pandas>=1.3.0
+openpyxl>=3.0.0 # For reading/writing .xlsx files
+MetPy>=1.2.0 # For meteorological calculations and plotting (Hodograph, Skew-T)
+siphon>=0.9.0 # For accessing meteorological data from services like Wyoming Upper Air
+scipy>=1.7.0 # For scientific computing, including interpolation
+Pillow>=8.4.0 # For image manipulation (PIL, Image, ImageGrab)
+cartopy>=0.20.0 # For geographical plotting
