@@ -190,6 +190,14 @@ if __name__ == '__main__':
                     min_data.append(min_value)
                 else:
                     print(f'Warning: No data available for sheet: {sheet_name} after filtering')
+            if limit and all(limit):
+                try:
+                    limit = [int(i) for i in limit]
+                    plt.ylim(min(limit), max(limit))
+                except Exception as e:
+                    print(f'Encountered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.')
+            else:
+                print("List is either empty or missing entries, continuing with premade plotting logic.")
             if min_data:
                 plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum')
                 plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum')
@@ -220,23 +228,39 @@ if __name__ == '__main__':
                 whisker_highs.append(whisker_high)
                 whisker_lows.append(whisker_low)
             plt.boxplot(all_data_list, showfliers=False)
+            if limit and all(limit):
+                try:
+                    limit = [int(i) for i in limit]
+                    plt.ylim(min(limit), max(limit))
+                    min_y_value = min(limit)
+                    max_y_value = max(limit)
+                except Exception as e:
+                    print(f"Encoutered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.")
+                    plt.ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
+                    min_y_value = min(whisker_lows)
+                    max_y_value = max(whisker_highs)+(max(whisker_highs)/4)
+            else:
+                print("List is either empty or missing entries, continuing with premade plotting logic.")
+                plt.ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
+                min_y_value = min(whisker_lows)
+                max_y_value = max(whisker_highs)+(max(whisker_highs)/4)
             for idx, (min_value, max_value) in enumerate(max_min_data):
-                if min_value < min(whisker_lows):
-                    min_value_plot = min(whisker_lows)
+                if min_value < min_y_value:
+                    min_value_plot = min_y_value
                     plt.scatter(idx+1, min_value_plot, color='red', zorder=5)
-                    plt.text(idx+1, min_value_plot+(max(whisker_highs)/15), f'{min_value}', color = 'black', ha='center', va='top', fontsize=6, rotation = 45)
+                    plt.text(idx+1, min_value_plot+(max_y_value/16), f'{str(min_value):.4}', color = 'black', ha='center', va='top', fontsize=8, rotation = 45)
                 else:
                     plt.scatter(idx+1, min_value, color='red', zorder=5)
-                if max_value > (max(whisker_highs)+(max(whisker_highs)/4)):
-                    max_value_plot = max(whisker_highs)+(max(whisker_highs)/4)
+                if max_value > max_y_value:
+                    max_value_plot = max_y_value
                     plt.scatter(idx+1, max_value_plot, color='green', zorder=5)
-                    plt.text(idx+1, max_value_plot+(max_value_plot/14), f'{max_value}', color='black', ha='center', va='top', fontsize=6, rotation = 45)
+                    plt.text(idx+1, max_value_plot+(max_value_plot/16), f'{str(max_value):.4}', color='black', ha='center', va='top', fontsize=8, rotation = 45)
                 else:
                     plt.scatter(idx+1, max_value, color='green', zorder=5)
-            plt.ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
-            plt.title(titlename, pad=25)
+            plt.title(titlename, pad=35)
             plt.ylabel(unittype)
             plt.xlabel('Time')
+            plt.subplots_adjust(bottom=0.15)
             plt.xticks(range(1, len(sheet_names)+1), sheet_names, fontsize=6, rotation=45)
 
         def save_plot():
@@ -280,24 +304,24 @@ if __name__ == '__main__':
             file_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
 
             title_label = ttk.Label(selection_frame, text='Title:') #label for title
-            title_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            title_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
             title_text = ttk.Entry(selection_frame) #entry for title
-            title_text.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            title_text.grid(row=0, column=3, padx=5, pady=5, sticky='w')
             
             units_label = ttk.Label(selection_frame, text='Units:') #label for title
-            units_label.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+            units_label.grid(row=1, column=2, padx=5, pady=5, sticky='w')
             units_text = ttk.Entry(selection_frame) #entry for title
-            units_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+            units_text.grid(row=1, column=3, padx=5, pady=5, sticky='w')
 
             max_label = ttk.Label(selection_frame, text='Maximum Limit:')
-            max_label.grid(row=4, column=0, padx=5, pady=5, sticky='w')
+            max_label.grid(row=2, column=2, padx=5, pady=5, sticky='w')
             max_text = ttk.Entry(selection_frame)
-            max_text.grid(row=4, column=1, padx=5, pady=5, sticky='w')
+            max_text.grid(row=2, column=3, padx=5, pady=5, sticky='w')
 
             min_label = ttk.Label(selection_frame, text='Minimum Limit:')
-            min_label.grid(row=5, column=0, padx=5, pady=5, sticky='w')
+            min_label.grid(row=3, column=2, padx=5, pady=5, sticky='w')
             min_text = ttk.Entry(selection_frame)
-            min_text.grid(row=5, column=1, padx=5, pady=5, sticky='w')
+            min_text.grid(row=3, column=3, padx=5, pady=5, sticky='w')
 
             #sheet_label = ttk.Label(selection_frame, text='Select Sheet:')
             #sheet_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
@@ -314,7 +338,8 @@ if __name__ == '__main__':
             box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
             plot_button = ttk.Button(tab, text='Generate Plot',
-                                    command= lambda: generate_plot(tab, run_var, file_var, title_text, units_text, plot_type_var, plot_area_frame))
+                                    command= lambda: generate_plot(tab, run_var, file_var, title_text, units_text, plot_type_var, plot_area_frame,
+                                                                   min_text, max_text))
             plot_button.grid(row=2, column=2, columnspan=2, padx=10, pady=10, sticky='e')
             save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
             save_button.grid(row = 2, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
@@ -360,14 +385,24 @@ if __name__ == '__main__':
             var2_menu.grid(row=2, column=1, padx=5, pady=5, sticky='w')
 
             title_label = ttk.Label(file_frame, text='Title:') #label for title
-            title_label.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+            title_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
             title_text = ttk.Entry(file_frame) #entry for title
-            title_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+            title_text.grid(row=0, column=3, padx=5, pady=5, sticky='w')
             
             units_label = ttk.Label(file_frame, text='Units:') #label for title
-            units_label.grid(row=4, column=0, padx=5, pady=5, sticky='w')
+            units_label.grid(row=1, column=2, padx=5, pady=5, sticky='w')
             units_text = ttk.Entry(file_frame) #entry for title
-            units_text.grid(row=4, column=1, padx=5, pady=5, sticky='w')
+            units_text.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+
+            max_label = ttk.Label(file_frame, text='Maximum Limit:')
+            max_label.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+            max_text = ttk.Entry(file_frame)
+            max_text.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+
+            min_label = ttk.Label(file_frame, text='Minimum Limit:')
+            min_label.grid(row=3, column=2, padx=5, pady=5, sticky='w')
+            min_text = ttk.Entry(file_frame)
+            min_text.grid(row=3, column=3, padx=5, pady=5, sticky='w')
 
             var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1')
             var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
@@ -387,7 +422,7 @@ if __name__ == '__main__':
 
             plot_button = ttk.Button(tab, text='Generate Plot',
                                     command= lambda: generate_plot_two_vars(tab, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, 
-                                                                            title_text, units_text, plot_area_frame))
+                                                                            title_text, units_text, plot_area_frame, min_text, max_text))
             plot_button.grid(row=3, column=2, columnspan=2, padx=10, pady=10, sticky='e')
             save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
             save_button.grid(row = 3, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
@@ -438,14 +473,24 @@ if __name__ == '__main__':
             var3_menu.grid(row=3, column=1, padx=5, pady=5, sticky='ew')
 
             title_label = ttk.Label(file_frame, text='Title:') #label for title
-            title_label.grid(row=4, column=0, padx=5, pady=5, sticky='w')
+            title_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
             title_text = ttk.Entry(file_frame) #entry for title
-            title_text.grid(row=4, column=1, padx=5, pady=5, sticky='w')
+            title_text.grid(row=0, column=3, padx=5, pady=5, sticky='w')
             
             units_label = ttk.Label(file_frame, text='Units:') #label for title
-            units_label.grid(row=5, column=0, padx=5, pady=5, sticky='w')
+            units_label.grid(row=1, column=2, padx=5, pady=5, sticky='w')
             units_text = ttk.Entry(file_frame) #entry for title
-            units_text.grid(row=5, column=1, padx=5, pady=5, sticky='w')
+            units_text.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+
+            max_label = ttk.Label(file_frame, text='Maximum Limit:')
+            max_label.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+            max_text = ttk.Entry(file_frame)
+            max_text.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+
+            min_label = ttk.Label(file_frame, text='Minimum Limit:')
+            min_label.grid(row=3, column=2, padx=5, pady=5, sticky='w')
+            min_text = ttk.Entry(file_frame)
+            min_text.grid(row=3, column=3, padx=5, pady=5, sticky='w')
 
             var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1:')
             var1_plot_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
@@ -474,7 +519,8 @@ if __name__ == '__main__':
             plot_button = ttk.Button(tab, text='Generate Plot',
                                     command= lambda: generate_plot_three_vars(tab, run_var, var1_file_var, var2_file_var, var3_file_var,
                                                                              var1_plot_type_var, var2_plot_type_var, var3_plot_type_var,
-                                                                            title_text, units_text, plot_area_frame))
+                                                                            title_text, units_text, plot_area_frame,
+                                                                            min_text, max_text))
             plot_button.grid(row=3, column=2, columnspan=2, padx=10, pady=10, sticky='e')
             save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
             save_button.grid(row = 3, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
@@ -528,18 +574,43 @@ if __name__ == '__main__':
                     file_var.set(files[0])
                     #update_sheets()
 
-        def update_sheets(parent, run_var, file_var):
+        def generate_plot(parent, run_var, file_var, title_var, unit_var, plot_type_var, plot_area_frame, min_l, max_l):
             selected_run = run_var.get()
             selected_file = file_var.get()
-            #sheet_menu['values'] = []
-            #sheet_var.set('')
-            if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_file]:
-                sheets = sorted(all_data[selected_run][selected_file].keys())
-                #sheet_menu['values'] = sheets
-                #if sheets:
-                    #sheet_var.set(sheets[0])
+            selected_title = title_var.get()
+            selected_units = unit_var.get()
+            plot_type = plot_type_var.get()
+            max_lim = max_l.get()
+            min_lim = min_l.get()
+            max_min = [max_lim, min_lim]
+            sorted_limit = sorted(max_min)
+            for widget in plot_area_frame.winfo_children():
+                widget.destroy() #destroy previous widgets
+            plt.close('all')
+            plt.clf()
+            if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_run]:
+                screen_width = root.winfo_screenwidth()
+                screen_height = root.winfo_screenheight()
+                max_width = screen_width*0.9
+                max_height = screen_height*0.9
+                aspect_ratio = 1
+                plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
+                data_to_plot = all_data[selected_run][selected_file]
+                sheet_names = list(data_to_plot.keys())
+                if plot_type == 'line':
+                    line_plot(data_to_plot, f'{selected_title}', f'{selected_units}', sheet_names, sorted_limit)
+                elif plot_type == 'box':
+                    Box_Whisker_preloaded(data_to_plot, f'{selected_title}', f'{selected_units}', sheet_names, sorted_limit)
+                
+                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame) #create canvas
+                canvas_widget = canvas.get_tk_widget() #get canvas widget
+                canvas_widget.pack() #pack canvas widget
+                canvas.draw() #draw canvas
+            else:
+                print('Error: Invalid Selection')
 
-        def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, title_var, unit_var, plot_area_frame):
+        def generate_plot_two_vars(parent, run_var, var1_file_var, var2_file_var, var1_plot_type_var, var2_plot_type_var, title_var, unit_var, plot_area_frame,
+                                   min_l, max_l):
             selected_run = run_var.get()
             selected_file_1 = var1_file_var.get()
             selected_file_2 = var2_file_var.get()
@@ -547,6 +618,10 @@ if __name__ == '__main__':
             selected_units = unit_var.get()
             plot_type_1 = var1_plot_type_var.get()
             plot_type_2 = var2_plot_type_var.get()
+            max_lim = max_l.get()
+            min_lim = min_l.get()
+            max_min = [max_lim, min_lim]
+            sorted_limit = sorted(max_min)
             if selected_run and selected_file_1 and selected_file_2 and selected_run in all_data and selected_file_1 in all_data[selected_run] and selected_file_2 in all_data[selected_run]:
                 data_to_plot_1 = all_data[selected_run][selected_file_1]
                 data_to_plot_2 = all_data[selected_run][selected_file_2]
@@ -563,13 +638,13 @@ if __name__ == '__main__':
                 aspect_ratio = 1
                 plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
                 if plot_type_1 == 'line':
-                    line_plot(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
+                    line_plot(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1, sorted_limit)
                 elif plot_type_1 =='box':
-                    Box_Whisker_preloaded(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
+                    Box_Whisker_preloaded(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1, sorted_limit)
                 if plot_type_2 == 'line':
-                    line_plot(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
+                    line_plot(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2, sorted_limit)
                 elif plot_type_2 == 'box':
-                    Box_Whisker_preloaded(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
+                    Box_Whisker_preloaded(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2, sorted_limit)
                 canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
                 canvas_widget = canvas.get_tk_widget()
                 canvas_widget.pack()
@@ -579,7 +654,8 @@ if __name__ == '__main__':
 
         def generate_plot_three_vars(parent, run_var, var1_file_var, var2_file_var, var3_file_var, 
                                      var1_plot_type, var2_plot_type, var3_plot_type,
-                                     title_var, unit_var, plot_frame):
+                                     title_var, unit_var, plot_frame,
+                                     min_l, max_l):
             selected_run = run_var.get()
             selected_file_1 = var1_file_var.get()
             selected_file_2 = var2_file_var.get()
@@ -589,6 +665,10 @@ if __name__ == '__main__':
             plot_type_1 = var1_plot_type.get()
             plot_type_2 = var2_plot_type.get()
             plot_type_3 = var3_plot_type.get()
+            max_lim = max_l.get()
+            min_lim = min_l.get()
+            max_min = [max_lim, min_lim]
+            sorted_limit = sorted(max_min)
             if selected_run and selected_file_1 and selected_file_2 and selected_file_3 and selected_run in all_data and selected_file_1 in all_data[selected_run] and selected_file_2 in all_data[selected_run] and selected_file_3 in all_data[selected_run]:
                 data_to_plot_1 = all_data[selected_run][selected_file_1]
                 data_to_plot_2 = all_data[selected_run][selected_file_2]
@@ -607,54 +687,23 @@ if __name__ == '__main__':
                 aspect_ratio = 1
                 plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
                 if plot_type_1 == 'line':
-                    line_plot(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
+                    line_plot(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1, sorted_limit)
                 elif plot_type_1 =='box':
-                    Box_Whisker_preloaded(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1)
+                    Box_Whisker_preloaded(data_to_plot_1, f'{selected_title}', f'{selected_units}', sheet_names_1, sorted_limit)
                 if plot_type_2 == 'line':
-                    line_plot(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
+                    line_plot(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2, sorted_limit)
                 elif plot_type_2 == 'box':
-                    Box_Whisker_preloaded(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2)
+                    Box_Whisker_preloaded(data_to_plot_2, f'{selected_title}', f'{selected_units}', sheet_names_2, sorted_limit)
                 if plot_type_3 == 'line':
-                    line_plot(data_to_plot_3, f'{selected_title}', f'{selected_units}', sheet_names_3)
+                    line_plot(data_to_plot_3, f'{selected_title}', f'{selected_units}', sheet_names_3, sorted_limit)
                 elif plot_type_3 == 'box':
-                    Box_Whisker_preloaded(data_to_plot_3, f'{selected_title}', f'{selected_units}', sheet_names_3)
+                    Box_Whisker_preloaded(data_to_plot_3, f'{selected_title}', f'{selected_units}', sheet_names_3, sorted_limit)
                 canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_frame)
                 canvas_widget = canvas.get_tk_widget()
                 canvas_widget.pack()
                 canvas.draw()
             else:
                 print('Error: Invalid selection')
-
-        def generate_plot(parent, run_var, file_var, title_var, unit_var, plot_type_var, plot_area_frame):
-            selected_run = run_var.get()
-            selected_file = file_var.get()
-            selected_title = title_var.get()
-            selected_units = unit_var.get()
-            plot_type = plot_type_var.get()
-            for widget in plot_area_frame.winfo_children():
-                widget.destroy() #destroy previous widgets
-            plt.close('all')
-            plt.clf()
-            if selected_run and selected_file and selected_run in all_data and selected_file in all_data[selected_run]:
-                screen_width = root.winfo_screenwidth()
-                screen_height = root.winfo_screenheight()
-                max_width = screen_width*0.9
-                max_height = screen_height*0.9
-                aspect_ratio = 1
-                plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
-                data_to_plot = all_data[selected_run][selected_file]
-                sheet_names = list(data_to_plot.keys())
-                if plot_type == 'line':
-                    line_plot(data_to_plot, f'{selected_title}', f'{selected_units}', sheet_names)
-                elif plot_type == 'box':
-                    Box_Whisker_preloaded(data_to_plot, f'{selected_title}', f'{selected_units}', sheet_names)
-                
-                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame) #create canvas
-                canvas_widget = canvas.get_tk_widget() #get canvas widget
-                canvas_widget.pack() #pack canvas widget
-                canvas.draw() #draw canvas
-            else:
-                print('Error: Invalid Selection')
 
         root = tk.Tk()
         root.title('Data Visulization')
