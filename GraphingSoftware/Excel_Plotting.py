@@ -173,42 +173,76 @@ if __name__ == '__main__':
         #all_data = preload_data(Full_Dir)
         #print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12.xlsx']['sheet_data'])
 
-        def line_plot(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None, filter=None, color_type : str = None):
+        def line_plot(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None, filter=None, color_type : str = None, ax = None):
             max_data = []
             min_data = []
             x_positions = np.arange(len(sheet_names))
-            for sheet_name in sheet_names:
-                flattened_data = data_to_plot[sheet_name]
-                if filter is not None:
-                    filtered_data = flattened_data[flattened_data>=filter]
+            if ax is None:
+                for sheet_name in sheet_names:
+                    flattened_data = data_to_plot[sheet_name]
+                    if filter is not None:
+                        filtered_data = flattened_data[flattened_data>=filter]
+                    else:
+                        filtered_data = flattened_data
+                    if filtered_data.size >0:
+                        min_value = np.min(filtered_data)
+                        max_value = np.max(filtered_data)
+                        max_data.append(max_value)
+                        min_data.append(min_value)
+                    else:
+                        print(f'Warning: No data available for sheet: {sheet_name} after filtering')
+                if limit and all(limit):
+                    try:
+                        limit = [int(i) for i in limit]
+                        plt.ylim(min(limit), max(limit))
+                    except Exception as e:
+                        print(f'Encountered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.')
                 else:
-                    filtered_data = flattened_data
-                if filtered_data.size >0:
-                    min_value = np.min(filtered_data)
-                    max_value = np.max(filtered_data)
-                    max_data.append(max_value)
-                    min_data.append(min_value)
+                    print("List is either empty or missing entries, continuing with premade plotting logic.")
+                if min_data:
+                    plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
+                    plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
+                    plt.title(titlename)
+                    plt.ylabel(unittype)
+                    plt.xlabel('time')
+                    plt.xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
+                    #plt.legend()
+                    plt.subplots_adjust(bottom=0.15)
                 else:
-                    print(f'Warning: No data available for sheet: {sheet_name} after filtering')
-            if limit and all(limit):
-                try:
-                    limit = [int(i) for i in limit]
-                    plt.ylim(min(limit), max(limit))
-                except Exception as e:
-                    print(f'Encountered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.')
-            else:
-                print("List is either empty or missing entries, continuing with premade plotting logic.")
-            if min_data:
-                plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
-                plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
-                plt.title(titlename)
-                plt.ylabel(unittype)
-                plt.xlabel('time')
-                plt.xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
-                #plt.legend()
-                plt.subplots_adjust(bottom=0.15)
-            else:
-                return print('Warning: No data to plot.')
+                    return print('Warning: No data to plot.')
+            if ax is not None:
+                for sheet_name in sheet_names:
+                    flattened_data = data_to_plot[sheet_name]
+                    if filter is not None:
+                        filtered_data = flattened_data[flattened_data>=filter]
+                    else:
+                        filtered_data = flattened_data
+                    if filtered_data.size >0:
+                        min_value = np.min(filtered_data)
+                        max_value = np.max(filtered_data)
+                        max_data.append(max_value)
+                        min_data.append(min_value)
+                    else:
+                        print(f'Warning: No data available for sheet: {sheet_name} after filtering')
+                if limit and all(limit):
+                    try:
+                        limit = [int(i) for i in limit]
+                        plt.ylim(min(limit), max(limit))
+                    except Exception as e:
+                        print(f'Encountered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.')
+                else:
+                    print("List is either empty or missing entries, continuing with premade plotting logic.")
+                if min_data:
+                    plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
+                    plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
+                    plt.title(titlename)
+                    plt.ylabel(unittype)
+                    plt.xlabel('time')
+                    plt.xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
+                    #plt.legend()
+                    plt.subplots_adjust(bottom=0.15)
+                else:
+                    return print('Warning: No data to plot.')
 
         def Box_Whisker_preloaded(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None):
             all_data_list = list(data_to_plot.values())
@@ -951,7 +985,7 @@ if __name__ == '__main__':
                 print('Error: Invalid Selection')
 
         def generate_plot_two_vars(parent, run_var_list, file_var_list, plot_type_list, title_var_list, unit_var_list, plot_area_frame,
-                                   min_list, max_list, color_list):
+                                   min_list, max_list, color_list, ax2 = False):
             data = []
             sheets = []
             if len(run_var_list) == len(file_var_list):
@@ -978,11 +1012,19 @@ if __name__ == '__main__':
             aspect_ratio = 1
             plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
             if len(plot_type_list) == len(data):
-                for i in range(len(plot_type_list)):
-                    if plot_type_list[i] == 'line':
-                        line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0], color_type=color_list[i])
-                    elif plot_type_list[i] =='box':
-                        Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0])
+                if ax2 == False:
+                    for i in range(len(plot_type_list)):
+                        if plot_type_list[i] == 'line':
+                            line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0], color_type=color_list[i])
+                        elif plot_type_list[i] =='box':
+                            Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0])
+                elif ax2 == True:
+                    axis = [None, True]
+                    for i in range(len(plot_type_list)):
+                        if plot_type_list[i] == 'line':
+                            line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[i]}', sheets[i], min_max[0], color_type=color_list[i], ax=axis[i])
+                        elif plot_type_list[i] =='box':
+                            Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{unit_var_list[i]}', sheets[i], min_max[0], ax=axis[i])
                 canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
                 canvas_widget = canvas.get_tk_widget()
                 canvas_widget.pack()
