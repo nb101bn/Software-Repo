@@ -173,7 +173,7 @@ if __name__ == '__main__':
         #all_data = preload_data(Full_Dir)
         #print(all_data['Run1']['Reflectivity_OVER20dBZ_Level12.xlsx']['sheet_data'])
 
-        def line_plot(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None, filter=None):
+        def line_plot(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None, filter=None, color_type : str = None):
             max_data = []
             min_data = []
             x_positions = np.arange(len(sheet_names))
@@ -199,8 +199,8 @@ if __name__ == '__main__':
             else:
                 print("List is either empty or missing entries, continuing with premade plotting logic.")
             if min_data:
-                plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum')
-                plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum')
+                plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
+                plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
                 plt.title(titlename)
                 plt.ylabel(unittype)
                 plt.xlabel('time')
@@ -535,13 +535,33 @@ if __name__ == '__main__':
             var1_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
             var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
+            var1_color_type_label = ttk.Label(plot_type_frame, text='Color Type File 1:')
+            var1_color_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            var1_color_type_var = tk.StringVar(value='blue')
+            var1_color_blue = ttk.Radiobutton(plot_type_frame, text='Blue', variable=var1_color_type_var, value='blue')
+            var1_color_blue.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            var1_color_red = ttk.Radiobutton(plot_type_frame, text='Red', variable=var1_color_type_var, value='red')
+            var1_color_red.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            var1_color_green = ttk.Radiobutton(plot_type_frame, text='Green', variable=var1_color_type_var, value='green')
+            var1_color_green.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+
             var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2')
-            var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            var2_plot_type_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
             var2_plot_type_var = tk.StringVar(value='line')
             var2_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
-            var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            var2_line_radio.grid(row=1, column=2, padx=5, pady=5, sticky='w')
             var2_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
-            var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            var2_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+
+            var2_color_type_label = ttk.Label(plot_type_frame, text='Color Type File 1:')
+            var2_color_type_label.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+            var2_color_type_var = tk.StringVar(value='blue')
+            var2_color_blue = ttk.Radiobutton(plot_type_frame, text='Blue', variable=var2_color_type_var, value='blue')
+            var2_color_blue.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+            var2_color_red = ttk.Radiobutton(plot_type_frame, text='Red', variable=var2_color_type_var, value='red')
+            var2_color_red.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+            var2_color_green = ttk.Radiobutton(plot_type_frame, text='Green', variable=var2_color_type_var, value='green')
+            var2_color_green.grid(row=3, column=3, padx=5, pady=5, sticky='w')
 
             def plot_button_press():
                 run_list = [run.get() for run in tab.run_menus]
@@ -551,8 +571,9 @@ if __name__ == '__main__':
                 min_list = [mins.get() for mins in tab.minimum_menus]
                 max_list = [maxs.get() for maxs in tab.maximum_menus]
                 plot_type_list = [var1_plot_type_var.get(), var2_plot_type_var.get()]
+                color_type_list = [var1_color_type_var.get(), var2_color_type_var.get()]
                 print('generating plot:')
-                generate_plot_two_vars(tab, run_list, file_list, plot_type_list, tiltle_list, unit_list, plot_area_frame, min_list, max_list)
+                generate_plot_two_vars(tab, run_list, file_list, plot_type_list, tiltle_list, unit_list, plot_area_frame, min_list, max_list, color_type_list)
 
 
             plot_button = ttk.Button(tab, text='Generate Plot',
@@ -781,21 +802,51 @@ if __name__ == '__main__':
             var1_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable= var1_plot_type_var, value = 'box')
             var1_box_radio.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
+            var1_color_type_label = ttk.Label(plot_type_frame, text='Color Type File 1:')
+            var1_color_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            var1_color_type_var = tk.StringVar(value='blue')
+            var1_color_blue = ttk.Radiobutton(plot_type_frame, text='Blue', variable=var1_color_type_var, value='blue')
+            var1_color_blue.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            var1_color_red = ttk.Radiobutton(plot_type_frame, text='Red', variable=var1_color_type_var, value='red')
+            var1_color_red.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            var1_color_green = ttk.Radiobutton(plot_type_frame, text='Green', variable=var1_color_type_var, value='green')
+            var1_color_green.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+
             var2_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 2:')
-            var2_plot_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            var2_plot_type_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
             var2_plot_type_var = tk.StringVar(value='line')
             var2_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var2_plot_type_var, value='line')
-            var2_line_radio.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            var2_line_radio.grid(row=1, column=2, padx=5, pady=5, sticky='w')
             var2_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var2_plot_type_var, value='box')
-            var2_box_radio.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            var2_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+
+            var2_color_type_label = ttk.Label(plot_type_frame, text='Color Type File 1:')
+            var2_color_type_label.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+            var2_color_type_var = tk.StringVar(value='blue')
+            var2_color_blue = ttk.Radiobutton(plot_type_frame, text='Blue', variable=var2_color_type_var, value='blue')
+            var2_color_blue.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+            var2_color_red = ttk.Radiobutton(plot_type_frame, text='Red', variable=var2_color_type_var, value='red')
+            var2_color_red.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+            var2_color_green = ttk.Radiobutton(plot_type_frame, text='Green', variable=var2_color_type_var, value='green')
+            var2_color_green.grid(row=3, column=3, padx=5, pady=5, sticky='w')
 
             var3_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 3:')
-            var3_plot_type_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+            var3_plot_type_label.grid(row=0, column=4, padx=5, pady=5, sticky='w')
             var3_plot_type_var = tk.StringVar(value='line')
             var3_line_radio = ttk.Radiobutton(plot_type_frame, text='Line Plot', variable=var3_plot_type_var, value='line')
-            var3_line_radio.grid(row=1, column=2, padx=5, pady=5, sticky='w')
+            var3_line_radio.grid(row=1, column=4, padx=5, pady=5, sticky='w')
             var3_box_radio = ttk.Radiobutton(plot_type_frame, text='Box and Whisker', variable=var3_plot_type_var, value='box')
-            var3_box_radio.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+            var3_box_radio.grid(row=2, column=4, padx=5, pady=5, sticky='w')
+
+            var3_color_type_label = ttk.Label(plot_type_frame, text='Color Type File 1:')
+            var3_color_type_label.grid(row=0, column=6, padx=5, pady=5, sticky='w')
+            var3_color_type_var = tk.StringVar(value='blue')
+            var3_color_blue = ttk.Radiobutton(plot_type_frame, text='Blue', variable=var3_color_type_var, value='blue')
+            var3_color_blue.grid(row=1, column=6, padx=5, pady=5, sticky='w')
+            var3_color_red = ttk.Radiobutton(plot_type_frame, text='Red', variable=var3_color_type_var, value='red')
+            var3_color_red.grid(row=2, column=6, padx=5, pady=5, sticky='w')
+            var3_color_green = ttk.Radiobutton(plot_type_frame, text='Green', variable=var3_color_type_var, value='green')
+            var3_color_green.grid(row=3, column=6, padx=5, pady=5, sticky='w')
 
             def plot_button_press():
                 run_list = [run.get() for run in tab.run_menus]
@@ -805,8 +856,9 @@ if __name__ == '__main__':
                 min_list = [mins.get() for mins in tab.minimum_menus]
                 max_list = [maxs.get() for maxs in tab.maximum_menus]
                 plot_type_list = [var1_plot_type_var.get(), var2_plot_type_var.get(), var3_plot_type_var.get()]
+                color_type_list = [var1_color_type_var.get(), var2_color_type_var.get(), var3_color_type_var.get()]
                 print('generating plot:')
-                generate_plot_three_vars(tab, run_list, file_list, plot_type_list, tiltle_list, unit_list, plot_area_frame, min_list, max_list)
+                generate_plot_three_vars(tab, run_list, file_list, plot_type_list, tiltle_list, unit_list, plot_area_frame, min_list, max_list, color_type_list)
 
             plot_button = ttk.Button(tab, text='Generate Plot',
                                     command= lambda: plot_button_press())
@@ -899,7 +951,7 @@ if __name__ == '__main__':
                 print('Error: Invalid Selection')
 
         def generate_plot_two_vars(parent, run_var_list, file_var_list, plot_type_list, title_var_list, unit_var_list, plot_area_frame,
-                                   min_list, max_list):
+                                   min_list, max_list, color_list):
             data = []
             sheets = []
             if len(run_var_list) == len(file_var_list):
@@ -928,7 +980,7 @@ if __name__ == '__main__':
             if len(plot_type_list) == len(data):
                 for i in range(len(plot_type_list)):
                     if plot_type_list[i] == 'line':
-                        line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0])
+                        line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0], color_type=color_list[i])
                     elif plot_type_list[i] =='box':
                         Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0])
                 canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
@@ -941,7 +993,7 @@ if __name__ == '__main__':
                 print(f"number of data points: {len(data)}")
 
         def generate_plot_three_vars(parent, run_var_list, file_var_list, plot_type_list, title_var_list, unit_var_list, plot_area_frame,
-                                   min_list, max_list):
+                                   min_list, max_list, color_list):
             data = []
             sheets = []
             if len(run_var_list) == len(file_var_list):
@@ -970,7 +1022,7 @@ if __name__ == '__main__':
             if len(plot_type_list) == len(data):
                 for i in range(len(plot_type_list)):
                     if plot_type_list[i] == 'line':
-                        line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0])
+                        line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0], color_type=color_list[i])
                     elif plot_type_list[i] =='box':
                         Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0])
                 canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
