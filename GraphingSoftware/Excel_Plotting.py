@@ -177,72 +177,42 @@ if __name__ == '__main__':
             max_data = []
             min_data = []
             x_positions = np.arange(len(sheet_names))
-            if ax is None:
-                for sheet_name in sheet_names:
-                    flattened_data = data_to_plot[sheet_name]
-                    if filter is not None:
-                        filtered_data = flattened_data[flattened_data>=filter]
-                    else:
-                        filtered_data = flattened_data
-                    if filtered_data.size >0:
-                        min_value = np.min(filtered_data)
-                        max_value = np.max(filtered_data)
-                        max_data.append(max_value)
-                        min_data.append(min_value)
-                    else:
-                        print(f'Warning: No data available for sheet: {sheet_name} after filtering')
-                if limit and all(limit):
-                    try:
-                        limit = [int(i) for i in limit]
-                        plt.ylim(min(limit), max(limit))
-                    except Exception as e:
-                        print(f'Encountered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.')
+
+            current_ax = ax if ax is not None else plt.gca()
+            
+            for sheet_name in sheet_names:
+                flattened_data = data_to_plot[sheet_name]
+                if filter is not None:
+                    filtered_data = flattened_data[flattened_data>=filter]
                 else:
-                    print("List is either empty or missing entries, continuing with premade plotting logic.")
-                if min_data:
-                    plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
-                    plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
-                    plt.title(titlename)
-                    plt.ylabel(unittype)
-                    plt.xlabel('time')
-                    plt.xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
-                    #plt.legend()
-                    plt.subplots_adjust(bottom=0.15)
+                    filtered_data = flattened_data
+                if filtered_data.size >0:
+                    min_value = np.min(filtered_data)
+                    max_value = np.max(filtered_data)
+                    max_data.append(max_value)
+                    min_data.append(min_value)
                 else:
-                    return print('Warning: No data to plot.')
-            if ax is not None:
-                for sheet_name in sheet_names:
-                    flattened_data = data_to_plot[sheet_name]
-                    if filter is not None:
-                        filtered_data = flattened_data[flattened_data>=filter]
-                    else:
-                        filtered_data = flattened_data
-                    if filtered_data.size >0:
-                        min_value = np.min(filtered_data)
-                        max_value = np.max(filtered_data)
-                        max_data.append(max_value)
-                        min_data.append(min_value)
-                    else:
-                        print(f'Warning: No data available for sheet: {sheet_name} after filtering')
-                if limit and all(limit):
-                    try:
-                        limit = [int(i) for i in limit]
-                        plt.ylim(min(limit), max(limit))
-                    except Exception as e:
-                        print(f'Encountered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.')
-                else:
-                    print("List is either empty or missing entries, continuing with premade plotting logic.")
-                if min_data:
-                    plt.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
-                    plt.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
-                    plt.title(titlename)
-                    plt.ylabel(unittype)
-                    plt.xlabel('time')
-                    plt.xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
-                    #plt.legend()
-                    plt.subplots_adjust(bottom=0.15)
-                else:
-                    return print('Warning: No data to plot.')
+                    print(f'Warning: No data available for sheet: {sheet_name} after filtering')
+            if limit and all(limit):
+                try:
+                    limit = [int(i) for i in limit]
+                    current_ax.set_ylim(min(limit), max(limit))
+                except Exception as e:
+                    print(f'Encountered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.')
+            else:
+                print("List is either empty or missing entries, continuing with premade plotting logic.")
+            if min_data:
+                current_ax.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
+                current_ax.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
+                if ax is None:
+                    current_ax.set_title(titlename)
+                current_ax.set_ylabel(unittype)
+                current_ax.set_xlabel('time')
+                current_ax.set_xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
+                #plt.legend()
+                plt.subplots_adjust(bottom=0.15)
+            else:
+                return print('Warning: No data to plot.')
 
         def Box_Whisker_preloaded(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None):
             all_data_list = list(data_to_plot.values())
@@ -380,8 +350,10 @@ if __name__ == '__main__':
 
         def double_variable_plot(notebook):
             
-            def update_selections(parent, frame, selection):
-                for widget in frame.winfo_children():
+            def update_selections(parent, frame_one, frame_two, selection, variable):
+                for widget in frame_one.winfo_children():
+                    widget.destroy() #destroy previous widgets
+                for widget in frame_two.winfo_children():
                     widget.destroy() #destroy previous widgets
                 parent.run_menus = []
                 parent.file_menus = []
@@ -393,24 +365,24 @@ if __name__ == '__main__':
                 selection = selection.get()
 
                 if selection == 'single':
-                    run_label = ttk.Label(frame, text='Select Run:')
+                    run_label = ttk.Label(frame_one, text='Select Run:')
                     run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
                     run_var = tk.StringVar(tab)
                     run_options = list(all_data.keys())
                     run_var.trace_add('write', lambda *args: update_variables_two_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var))
-                    run_menu = ttk.Combobox(frame, textvariable=run_var, values=run_options)
+                    run_menu = ttk.Combobox(frame_one, textvariable=run_var, values=run_options)
                     run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
 
-                    var1_label = ttk.Label(frame, text='Select File 1:')
+                    var1_label = ttk.Label(frame_one, text='Select File 1:')
                     var1_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
                     var1_file_var = tk.StringVar(tab)
-                    var1_menu = ttk.Combobox(frame, textvariable=var1_file_var, values=[])
+                    var1_menu = ttk.Combobox(frame_one, textvariable=var1_file_var, values=[])
                     var1_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
 
-                    var2_label = ttk.Label(frame, text='Select File 2:')
+                    var2_label = ttk.Label(frame_one, text='Select File 2:')
                     var2_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
                     var2_file_var = tk.StringVar(tab)
-                    var2_menu = ttk.Combobox(frame, textvariable=var2_file_var, values=[])
+                    var2_menu = ttk.Combobox(frame_one, textvariable=var2_file_var, values=[])
                     var2_menu.grid(row=2, column=1, padx=5, pady=5, sticky='w')
 
                     parent.run_menus.append(run_var)
@@ -419,9 +391,9 @@ if __name__ == '__main__':
                     parent.file_menus.append(var2_file_var)
 
                 elif selection == 'multiple':
-                    run_label_1 = ttk.Label(frame, text='Select First Run:')
+                    run_label_1 = ttk.Label(frame_one, text='Select First Run:')
                     run_label_1.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-                    run_label_2 = ttk.Label(frame, text='Select Second Run:')
+                    run_label_2 = ttk.Label(frame_one, text='Select Second Run:')
                     run_label_2.grid(row=0, column=1, padx=5, pady=5, sticky='w')
                     run_var_1 = tk.StringVar(parent)
                     run_options_1 = list(all_data.keys())
@@ -429,21 +401,21 @@ if __name__ == '__main__':
                     run_var_2 = tk.StringVar(parent)
                     run_var_1.trace_add('write', lambda *args: update_files(parent, run_var_1, var1_menu, var1_file_var))
                     run_var_2.trace_add('write', lambda *args: update_files(parent, run_var_2, var2_menu, var2_file_var))
-                    run_menu_1 = ttk.Combobox(frame, textvariable=run_var_1, values=run_options_1)
+                    run_menu_1 = ttk.Combobox(frame_one, textvariable=run_var_1, values=run_options_1)
                     run_menu_1.grid(row=1, column=0, padx=5, pady=5, sticky='w')
-                    run_menu_2 = ttk.Combobox(frame, textvariable=run_var_2, values=run_options_2)
+                    run_menu_2 = ttk.Combobox(frame_one, textvariable=run_var_2, values=run_options_2)
                     run_menu_2.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
-                    var1_label = ttk.Label(frame, text='Select File 1:')
+                    var1_label = ttk.Label(frame_one, text='Select File 1:')
                     var1_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
                     var1_file_var = tk.StringVar(tab)
-                    var1_menu = ttk.Combobox(frame, textvariable=var1_file_var, values=[])
+                    var1_menu = ttk.Combobox(frame_one, textvariable=var1_file_var, values=[])
                     var1_menu.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
 
-                    var2_label = ttk.Label(frame, text='Select File 2:')
+                    var2_label = ttk.Label(frame_one, text='Select File 2:')
                     var2_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
                     var2_file_var = tk.StringVar(tab)
-                    var2_menu = ttk.Combobox(frame, textvariable=var2_file_var, values=[])
+                    var2_menu = ttk.Combobox(frame_one, textvariable=var2_file_var, values=[])
                     var2_menu.grid(row=3, column=1, padx=5, pady=5, sticky='w')
                     
                     parent.run_menus.append(run_var_1)
@@ -451,25 +423,25 @@ if __name__ == '__main__':
                     parent.file_menus.append(var1_file_var)
                     parent.file_menus.append(var2_file_var)
                 
-                title_label = ttk.Label(file_frame, text='Title:') #label for title
-                title_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
-                title_text = ttk.Entry(file_frame) #entry for title
-                title_text.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+                title_label = ttk.Label(frame_two, text='Title:') #label for title
+                title_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+                title_text = ttk.Entry(frame_two) #entry for title
+                title_text.grid(row=1, column=0, padx=5, pady=5, sticky='w')
                 
-                units_label = ttk.Label(file_frame, text='Units:') #label for title
-                units_label.grid(row=1, column=2, padx=5, pady=5, sticky='w')
-                units_text = ttk.Entry(file_frame) #entry for title
-                units_text.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+                units_label = ttk.Label(frame_two, text='Units:') #label for title
+                units_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+                units_text = ttk.Entry(frame_two) #entry for title
+                units_text.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
-                max_label = ttk.Label(file_frame, text='Maximum Limit:')
-                max_label.grid(row=2, column=2, padx=5, pady=5, sticky='w')
-                max_text = ttk.Entry(file_frame)
-                max_text.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+                max_label = ttk.Label(frame_two, text='Maximum Limit:')
+                max_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                max_text = ttk.Entry(frame_two)
+                max_text.grid(row=3, column=0, padx=5, pady=5, sticky='w')
 
-                min_label = ttk.Label(file_frame, text='Minimum Limit:')
-                min_label.grid(row=3, column=2, padx=5, pady=5, sticky='w')
-                min_text = ttk.Entry(file_frame)
-                min_text.grid(row=3, column=3, padx=5, pady=5, sticky='w')
+                min_label = ttk.Label(frame_two, text='Minimum Limit:')
+                min_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+                min_text = ttk.Entry(frame_two)
+                min_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
 
                 parent.title_menus.append(title_text)
                 parent.unit_menus.append(units_text)
@@ -485,13 +457,16 @@ if __name__ == '__main__':
             #run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
 
             selection_frame = ttk.LabelFrame(tab, text='Selection type')
-            selection_frame.grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
+            selection_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
             
             file_frame = ttk.LabelFrame(tab, text='Files')
             file_frame.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
 
             plot_type_frame = ttk.LabelFrame(tab, text='Plot Types')
             plot_type_frame.grid(row=0, column=2, padx=10, pady=10, sticky='nsew')
+
+            plot_customization_frame = ttk.LabelFrame(tab, text='Plot Customization')
+            plot_customization_frame.grid(row=1, column=2, padx=10, pady=10, sticky='nsew')
             
             plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
             plot_area_frame.grid(row=1, column = 0, columnspan=2, padx=10, pady=10, sticky='nsew')
@@ -502,9 +477,18 @@ if __name__ == '__main__':
             run_type_label = ttk.Label(selection_frame, text='Select Run Type:')
             run_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
             run_type_var = tk.StringVar(value='single')
-            run_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, run_type_var))
             run_type = ttk.Combobox(selection_frame, text='Single Run', textvariable=run_type_var, value=['single', 'multiple'])
             run_type.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+
+            variable_type_label = ttk.Label(selection_frame, text='Select Variable Type')
+            variable_type_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            variable_type_var = tk.StringVar(value='Unscaled')
+            variable_type_options = ['Unscaled', 'Scaled']
+            variable_type_menu = ttk.Combobox(selection_frame, text='Unscaled', textvariable=variable_type_var, value=variable_type_options)
+            variable_type_menu.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+            
+            run_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, plot_customization_frame, run_type_var, variable_type_var))
+            variable_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, plot_customization_frame, run_type_var, variable_type_var))
 
             tab.run_menus = []
             tab.file_menus = []
@@ -537,28 +521,28 @@ if __name__ == '__main__':
             var2_menu.grid(row=2, column=1, padx=5, pady=5, sticky='w')
             tab.file_menus.append(var2_file_var)
 
-            title_label = ttk.Label(file_frame, text='Title:') #label for title
-            title_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
-            title_text = ttk.Entry(file_frame) #entry for title
-            title_text.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+            title_label = ttk.Label(plot_customization_frame, text='Title:') #label for title
+            title_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            title_text = ttk.Entry(plot_customization_frame) #entry for title
+            title_text.grid(row=1, column=0, padx=5, pady=5, sticky='w')
             tab.title_menus.append(title_text)
             
-            units_label = ttk.Label(file_frame, text='Units:') #label for title
-            units_label.grid(row=1, column=2, padx=5, pady=5, sticky='w')
-            units_text = ttk.Entry(file_frame) #entry for title
-            units_text.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+            units_label = ttk.Label(plot_customization_frame, text='Units:') #label for title
+            units_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            units_text = ttk.Entry(plot_customization_frame) #entry for title
+            units_text.grid(row=1, column=1, padx=5, pady=5, sticky='w')
             tab.unit_menus.append(units_text)
 
-            max_label = ttk.Label(file_frame, text='Maximum Limit:')
-            max_label.grid(row=2, column=2, padx=5, pady=5, sticky='w')
-            max_text = ttk.Entry(file_frame)
-            max_text.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+            max_label = ttk.Label(plot_customization_frame, text='Maximum Limit:')
+            max_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            max_text = ttk.Entry(plot_customization_frame)
+            max_text.grid(row=3, column=0, padx=5, pady=5, sticky='w')
             tab.maximum_menus.append(max_text)
 
-            min_label = ttk.Label(file_frame, text='Minimum Limit:')
-            min_label.grid(row=3, column=2, padx=5, pady=5, sticky='w')
-            min_text = ttk.Entry(file_frame)
-            min_text.grid(row=3, column=3, padx=5, pady=5, sticky='w')
+            min_label = ttk.Label(plot_customization_frame, text='Minimum Limit:')
+            min_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            min_text = ttk.Entry(plot_customization_frame)
+            min_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
             tab.minimum_menus.append(min_text)
 
             var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1')
@@ -618,8 +602,10 @@ if __name__ == '__main__':
 
         def triple_variable_plot(notebook):
             
-            def update_selections(parent, frame, selection):
+            def update_selections(parent, frame, frame_two, selection):
                 for widget in frame.winfo_children():
+                    widget.destroy() #destroy previous widgets
+                for widget in frame_two.winfo_children():
                     widget.destroy() #destroy previous widgets
                 parent.run_menus = []
                 parent.file_menus = []
@@ -712,25 +698,25 @@ if __name__ == '__main__':
                     parent.file_menus.append(var2_file_var)
                     parent.file_menus.append(var3_file_var)
                 
-                title_label = ttk.Label(file_frame, text='Title:') #label for title
-                title_label.grid(row=0, column=3, padx=5, pady=5, sticky='w')
-                title_text = ttk.Entry(file_frame) #entry for title
-                title_text.grid(row=0, column=4, padx=5, pady=5, sticky='w')
+                title_label = ttk.Label(frame_two, text='Title:') #label for title
+                title_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+                title_text = ttk.Entry(frame_two) #entry for title
+                title_text.grid(row=1, column=0, padx=5, pady=5, sticky='w')
                 
-                units_label = ttk.Label(file_frame, text='Units:') #label for title
-                units_label.grid(row=1, column=3, padx=5, pady=5, sticky='w')
-                units_text = ttk.Entry(file_frame) #entry for title
-                units_text.grid(row=1, column=4, padx=5, pady=5, sticky='w')
+                units_label = ttk.Label(frame_two, text='Units:') #label for title
+                units_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+                units_text = ttk.Entry(frame_two) #entry for title
+                units_text.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
-                max_label = ttk.Label(file_frame, text='Maximum Limit:')
-                max_label.grid(row=2, column=3, padx=5, pady=5, sticky='w')
-                max_text = ttk.Entry(file_frame)
-                max_text.grid(row=2, column=4, padx=5, pady=5, sticky='w')
+                max_label = ttk.Label(frame_two, text='Maximum Limit:')
+                max_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                max_text = ttk.Entry(frame_two)
+                max_text.grid(row=3, column=0, padx=5, pady=5, sticky='w')
 
-                min_label = ttk.Label(file_frame, text='Minimum Limit:')
-                min_label.grid(row=3, column=3, padx=5, pady=5, sticky='w')
-                min_text = ttk.Entry(file_frame)
-                min_text.grid(row=3, column=4, padx=5, pady=5, sticky='w')
+                min_label = ttk.Label(frame_two, text='Minimum Limit:')
+                min_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+                min_text = ttk.Entry(frame_two)
+                min_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
 
                 parent.title_menus.append(title_text)
                 parent.unit_menus.append(units_text)
@@ -744,13 +730,19 @@ if __name__ == '__main__':
             #run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
             
             selection_frame = ttk.LabelFrame(tab, text='Selection type')
-            selection_frame.grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
+            selection_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
             file_frame = ttk.LabelFrame(tab, text='File Selection')
             file_frame.grid(row=0, column=1, columnspan=1, padx=10, pady=10, sticky='nsew')
 
             plot_type_frame = ttk.LabelFrame(tab, text='Plot Type Selection')
             plot_type_frame.grid(row=0, column=2, columnspan=1, padx=10, pady=10, sticky='nsew')
+
+            selection_frame = ttk.LabelFrame(tab, text='Selection type')
+            selection_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+
+            plot_customization_frame = ttk.LabelFrame(tab, text='Plot Customization')
+            plot_customization_frame.grid(row=1, column=2, padx=10, pady=10, sticky='nsew')
 
             plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
             plot_area_frame.grid(row=1, column = 0, columnspan=2, padx=10, pady=10, sticky='nsew')
@@ -761,7 +753,7 @@ if __name__ == '__main__':
             run_type_label = ttk.Label(selection_frame, text='Select Run Type:')
             run_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
             run_type_var = tk.StringVar(value='single')
-            run_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, run_type_var))
+            run_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, plot_customization_frame, run_type_var))
             run_type = ttk.Combobox(selection_frame, text='Single Run', textvariable=run_type_var, value=['single', 'multiple'])
             run_type.grid(row=1, column=0, padx=5, pady=5, sticky='w')
 
@@ -804,28 +796,28 @@ if __name__ == '__main__':
             var3_menu.grid(row=3, column=1, padx=5, pady=5, sticky='ew')
             tab.file_menus.append(var3_file_var)
 
-            title_label = ttk.Label(file_frame, text='Title:') #label for title
-            title_label.grid(row=0, column=2, padx=5, pady=5, sticky='w')
-            title_text = ttk.Entry(file_frame) #entry for title
-            title_text.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+            title_label = ttk.Label(plot_customization_frame, text='Title:') #label for title
+            title_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            title_text = ttk.Entry(plot_customization_frame) #entry for title
+            title_text.grid(row=1, column=0, padx=5, pady=5, sticky='w')
             tab.title_menus.append(title_text)
             
-            units_label = ttk.Label(file_frame, text='Units:') #label for title
-            units_label.grid(row=1, column=2, padx=5, pady=5, sticky='w')
-            units_text = ttk.Entry(file_frame) #entry for title
-            units_text.grid(row=1, column=3, padx=5, pady=5, sticky='w')
+            units_label = ttk.Label(plot_customization_frame, text='Units:') #label for title
+            units_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            units_text = ttk.Entry(plot_customization_frame) #entry for title
+            units_text.grid(row=1, column=1, padx=5, pady=5, sticky='w')
             tab.unit_menus.append(units_text)
 
-            max_label = ttk.Label(file_frame, text='Maximum Limit:')
-            max_label.grid(row=2, column=2, padx=5, pady=5, sticky='w')
-            max_text = ttk.Entry(file_frame)
-            max_text.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+            max_label = ttk.Label(plot_customization_frame, text='Maximum Limit:')
+            max_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            max_text = ttk.Entry(plot_customization_frame)
+            max_text.grid(row=3, column=0, padx=5, pady=5, sticky='w')
             tab.maximum_menus.append(max_text)
 
-            min_label = ttk.Label(file_frame, text='Minimum Limit:')
-            min_label.grid(row=3, column=2, padx=5, pady=5, sticky='w')
-            min_text = ttk.Entry(file_frame)
-            min_text.grid(row=3, column=3, padx=5, pady=5, sticky='w')
+            min_label = ttk.Label(plot_customization_frame, text='Minimum Limit:')
+            min_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            min_text = ttk.Entry(plot_customization_frame)
+            min_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
             tab.minimum_menus.append(min_text)
 
             var1_plot_type_label = ttk.Label(plot_type_frame, text='Plot Type File 1:')
@@ -970,6 +962,7 @@ if __name__ == '__main__':
                 max_height = screen_height*0.9
                 aspect_ratio = 1
                 plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
+                plt.grid(True, alpha = 0.5)
                 data_to_plot = all_data[selected_run][selected_file]
                 sheet_names = list(data_to_plot.keys())
                 if plot_type == 'line':
@@ -1009,23 +1002,34 @@ if __name__ == '__main__':
             screen_height = root.winfo_screenheight()
             max_width = screen_width*0.9
             max_height = screen_height*0.9
-            aspect_ratio = 1
-            plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
+            fig, ax1 = plt.subplots(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
+            ax1.grid(True, alpha = 0.5)
+            ax_secondary = None
+            if ax2:
+                ax_secondary = ax1.twinx()
             if len(plot_type_list) == len(data):
                 if ax2 == False:
                     for i in range(len(plot_type_list)):
+                        current_plot_ax = ax_secondary if ax2 and i == 1 else ax1
+                        current_unit_type = None
+                        if i < len(unit_var_list): # Check if 'i' is a valid index
+                            current_unit_type = unit_var_list[i]
+                        elif unit_var_list: # If 'i' is out of bounds but list is not empty, use the first element
+                            current_unit_type = unit_var_list[0]
+                        else: # If the list is empty, provide a default or None
+                            current_unit_type = "Unit" # Or None, depending on desired behavior
+
+                        # Safely get min_max for the current plot
+                        current_min_max = None
+                        if i < len(min_max): # Check if 'i' is a valid index
+                            current_min_max = min_max[i]
+                        elif min_max: # If 'i' is out of bounds but list is not empty, use the first element
+                            current_min_max = min_max[0]
                         if plot_type_list[i] == 'line':
-                            line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0], color_type=color_list[i])
+                            line_plot(data[i], f'{title_var_list[0]}', f'{current_unit_type}', sheets[i], current_min_max, color_type=color_list[i], ax=current_plot_ax)
                         elif plot_type_list[i] =='box':
-                            Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{unit_var_list[0]}', sheets[i], min_max[0])
-                elif ax2 == True:
-                    axis = [None, True]
-                    for i in range(len(plot_type_list)):
-                        if plot_type_list[i] == 'line':
-                            line_plot(data[i], f'{title_var_list[0]}', f'{unit_var_list[i]}', sheets[i], min_max[0], color_type=color_list[i], ax=axis[i])
-                        elif plot_type_list[i] =='box':
-                            Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{unit_var_list[i]}', sheets[i], min_max[0], ax=axis[i])
-                canvas = FigureCanvasTkAgg(plt.gcf(), master=plot_area_frame)
+                            Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{current_unit_type}', sheets[i], current_min_max)
+                canvas = FigureCanvasTkAgg(fig, master=plot_area_frame)
                 canvas_widget = canvas.get_tk_widget()
                 canvas_widget.pack()
                 canvas.draw()
@@ -1061,6 +1065,7 @@ if __name__ == '__main__':
             max_height = screen_height*0.9
             aspect_ratio = 1
             plt.figure(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
+            plt.grid(True, alpha = 0.5)
             if len(plot_type_list) == len(data):
                 for i in range(len(plot_type_list)):
                     if plot_type_list[i] == 'line':
