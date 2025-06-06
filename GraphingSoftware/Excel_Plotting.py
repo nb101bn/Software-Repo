@@ -472,12 +472,12 @@ if __name__ == '__main__':
                     max_text_2 = ttk.Entry(frame_two)
                     max_text_2.grid(row=3, column=2, padx=5, pady=5, sticky='w')
 
-                    min_label_1 = ttk.Label(frame_two, text='Minimum Limit:')
+                    min_label_1 = ttk.Label(frame_two, text='First Minimum Limit:')
                     min_label_1.grid(row=2, column=1, padx=5, pady=5, sticky='w')
                     min_text_1 = ttk.Entry(frame_two)
                     min_text_1.grid(row=3, column=1, padx=5, pady=5, sticky='w')
 
-                    min_label_2 = ttk.Label(frame_two, text='Minimum Limit:')
+                    min_label_2 = ttk.Label(frame_two, text='Second Minimum Limit:')
                     min_label_2.grid(row=2, column=3, padx=5, pady=5, sticky='w')
                     min_text_2 = ttk.Entry(frame_two)
                     min_text_2.grid(row=3, column=3, padx=5, pady=5, sticky='w')
