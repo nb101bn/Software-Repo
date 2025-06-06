@@ -204,8 +204,7 @@ if __name__ == '__main__':
             if min_data:
                 current_ax.plot(x_positions, min_data, marker='o', linestyle='--', label='minimum', color = color_type if color_type is not None else None)
                 current_ax.plot(x_positions, max_data, marker='s', linestyle='-', label = 'maximum', color = color_type if color_type is not None else None)
-                if ax is None:
-                    current_ax.set_title(titlename)
+                current_ax.set_title(titlename, pad=35)
                 current_ax.set_ylabel(unittype)
                 current_ax.set_xlabel('time')
                 current_ax.set_xticks(x_positions, sheet_names, rotation=45, ha='right', fontsize = 6)
@@ -214,11 +213,12 @@ if __name__ == '__main__':
             else:
                 return print('Warning: No data to plot.')
 
-        def Box_Whisker_preloaded(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None):
+        def Box_Whisker_preloaded(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None, ax = None):
             all_data_list = list(data_to_plot.values())
             max_min_data = []
             whisker_highs = []
             whisker_lows = []
+            current_ax = ax if ax is not None else plt.gca()
             for flattened_data in all_data_list:
                 min_data = np.min(flattened_data)
                 max_data = np.max(flattened_data)
@@ -235,37 +235,37 @@ if __name__ == '__main__':
             if limit and all(limit):
                 try:
                     limit = [int(i) for i in limit]
-                    plt.ylim(min(limit), max(limit))
+                    current_ax.set_ylim(min(limit), max(limit))
                     min_y_value = min(limit)
                     max_y_value = max(limit)
                 except Exception as e:
                     print(f"Encoutered an error while trying to convert the list to integers: {e} \n continuing with premade plotting logic.")
-                    plt.ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
+                    current_ax.set_ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
                     min_y_value = min(whisker_lows)
                     max_y_value = max(whisker_highs)+(max(whisker_highs)/4)
             else:
                 print("List is either empty or missing entries, continuing with premade plotting logic.")
-                plt.ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
+                current_ax.set_ylim([min(whisker_lows), max(whisker_highs)+(max(whisker_highs)/4)])
                 min_y_value = min(whisker_lows)
                 max_y_value = max(whisker_highs)+(max(whisker_highs)/4)
             for idx, (min_value, max_value) in enumerate(max_min_data):
                 if min_value < min_y_value:
                     min_value_plot = min_y_value
-                    plt.scatter(idx+1, min_value_plot, color='red', zorder=5)
-                    plt.text(idx+1, min_value_plot+(max_y_value/16), f'{str(min_value):.4}', color = 'black', ha='center', va='top', fontsize=8, rotation = 45)
+                    current_ax.scatter(idx+1, min_value_plot, color='red', zorder=5)
+                    current_ax.text(idx+1, min_value_plot+(max_y_value/16), f'{str(min_value):.4}', color = 'black', ha='center', va='top', fontsize=8, rotation = 45)
                 else:
-                    plt.scatter(idx+1, min_value, color='red', zorder=5)
+                    current_ax.scatter(idx+1, min_value, color='red', zorder=5)
                 if max_value > max_y_value:
                     max_value_plot = max_y_value
-                    plt.scatter(idx+1, max_value_plot, color='green', zorder=5)
-                    plt.text(idx+1, max_value_plot+(max_value_plot/16), f'{str(max_value):.4}', color='black', ha='center', va='top', fontsize=8, rotation = 45)
+                    current_ax.scatter(idx+1, max_value_plot, color='green', zorder=5)
+                    current_ax.text(idx+1, max_value_plot+(max_value_plot/16), f'{str(max_value):.4}', color='black', ha='center', va='top', fontsize=8, rotation = 45)
                 else:
-                    plt.scatter(idx+1, max_value, color='green', zorder=5)
-            plt.title(titlename, pad=35)
-            plt.ylabel(unittype)
-            plt.xlabel('Time')
+                    current_ax.scatter(idx+1, max_value, color='green', zorder=5)
+            current_ax.set_title(titlename, pad=35)
+            current_ax.set_ylabel(unittype)
+            current_ax.set_xlabel('Time')
             plt.subplots_adjust(bottom=0.15)
-            plt.xticks(range(1, len(sheet_names)+1), sheet_names, fontsize=6, rotation=45)
+            current_ax.set_xticks(range(1, len(sheet_names)+1), sheet_names, fontsize=6, rotation=45)
 
         def save_plot():
             """
@@ -363,6 +363,7 @@ if __name__ == '__main__':
                 parent.maximum_menus = []
 
                 selection = selection.get()
+                variable = variable.get()
 
                 if selection == 'single':
                     run_label = ttk.Label(frame_one, text='Select Run:')
@@ -427,26 +428,68 @@ if __name__ == '__main__':
                 title_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
                 title_text = ttk.Entry(frame_two) #entry for title
                 title_text.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+                if variable == 'Unscaled':
+                    parent.axis = False
+
+                    units_label = ttk.Label(frame_two, text='Units:') #label for title
+                    units_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+                    units_text = ttk.Entry(frame_two) #entry for title
+                    units_text.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+
+                    max_label = ttk.Label(frame_two, text='Maximum Limit:')
+                    max_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                    max_text = ttk.Entry(frame_two)
+                    max_text.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+
+                    min_label = ttk.Label(frame_two, text='Minimum Limit:')
+                    min_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+                    min_text = ttk.Entry(frame_two)
+                    min_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+                    parent.unit_menus.append(units_text)
+                    parent.minimum_menus.append(min_text)
+                    parent.maximum_menus.append(max_text)
                 
-                units_label = ttk.Label(frame_two, text='Units:') #label for title
-                units_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
-                units_text = ttk.Entry(frame_two) #entry for title
-                units_text.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+                elif variable == 'Scaled':
+                    parent.axis = True
 
-                max_label = ttk.Label(frame_two, text='Maximum Limit:')
-                max_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
-                max_text = ttk.Entry(frame_two)
-                max_text.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+                    units_label_1 = ttk.Label(frame_two, text='First Unit:') #label for title
+                    units_label_1.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+                    units_text_1 = ttk.Entry(frame_two) #entry for title
+                    units_text_1.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
-                min_label = ttk.Label(frame_two, text='Minimum Limit:')
-                min_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
-                min_text = ttk.Entry(frame_two)
-                min_text.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+                    units_label_2 = ttk.Label(frame_two, text='Second Unit:')
+                    units_label_2.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+                    units_text_2 = ttk.Entry(frame_two)
+                    units_text_2.grid(row=1, column=2, padx=5, pady=5, sticky='w')
+
+                    max_label_1 = ttk.Label(frame_two, text='First Maximum Limit:')
+                    max_label_1.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                    max_text_1 = ttk.Entry(frame_two)
+                    max_text_1.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+
+                    max_label_2 = ttk.Label(frame_two, text='Second Maximum Limit:')
+                    max_label_2.grid(row=2, column=2, padx=5, pady=5, sticky='w')
+                    max_text_2 = ttk.Entry(frame_two)
+                    max_text_2.grid(row=3, column=2, padx=5, pady=5, sticky='w')
+
+                    min_label_1 = ttk.Label(frame_two, text='Minimum Limit:')
+                    min_label_1.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+                    min_text_1 = ttk.Entry(frame_two)
+                    min_text_1.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+
+                    min_label_2 = ttk.Label(frame_two, text='Minimum Limit:')
+                    min_label_2.grid(row=2, column=3, padx=5, pady=5, sticky='w')
+                    min_text_2 = ttk.Entry(frame_two)
+                    min_text_2.grid(row=3, column=3, padx=5, pady=5, sticky='w')
+                    
+                    parent.unit_menus.append(units_text_1)
+                    parent.unit_menus.append(units_text_2)
+                    parent.minimum_menus.append(min_text_1)
+                    parent.minimum_menus.append(min_text_2)
+                    parent.maximum_menus.append(max_text_1)
+                    parent.maximum_menus.append(max_text_2)
 
                 parent.title_menus.append(title_text)
-                parent.unit_menus.append(units_text)
-                parent.minimum_menus.append(min_text)
-                parent.maximum_menus.append(max_text)
 
 
 
@@ -489,7 +532,7 @@ if __name__ == '__main__':
             
             run_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, plot_customization_frame, run_type_var, variable_type_var))
             variable_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, plot_customization_frame, run_type_var, variable_type_var))
-
+            tab.axis = False
             tab.run_menus = []
             tab.file_menus = []
             tab.title_menus = []
@@ -590,8 +633,9 @@ if __name__ == '__main__':
                 max_list = [maxs.get() for maxs in tab.maximum_menus]
                 plot_type_list = [var1_plot_type_var.get(), var2_plot_type_var.get()]
                 color_type_list = [var1_color_type_var.get(), var2_color_type_var.get()]
+                axis_type = tab.axis
                 print('generating plot:')
-                generate_plot_two_vars(tab, run_list, file_list, plot_type_list, tiltle_list, unit_list, plot_area_frame, min_list, max_list, color_type_list)
+                generate_plot_two_vars(tab, run_list, file_list, plot_type_list, tiltle_list, unit_list, plot_area_frame, min_list, max_list, color_type_list, axis_type)
 
 
             plot_button = ttk.Button(tab, text='Generate Plot',
@@ -990,10 +1034,17 @@ if __name__ == '__main__':
             else:
                 print(f"Runs or files are too few \n Number of runs: {len(run_var_list)} \n Number of files: {len(file_var_list)}")
             min_max = []
+            print(f"All Minimums: {min_list}")
+            print(f"All Maximums: {max_list}")
             if len(min_list) == len(max_list):
                 for mins, maxs in zip(min_list, max_list):
+                    print(f"mins {mins}")
+                    print(f"maxs {maxs}")
                     box = [mins, maxs]
+                    box.sort()
+                    print(f"ordered pair: {box}")
                     min_max.append(box)
+                print(f'Mins and Maxs ordered pairs: {min_max} \n Number of ordered pairs: {len(min_max)}')
             for widget in plot_area_frame.winfo_children():
                 widget.destroy()
             plt.close('all')
@@ -1005,30 +1056,31 @@ if __name__ == '__main__':
             fig, ax1 = plt.subplots(figsize=(min(max_width / 100, max_height / 100), min(max_width / 100, max_height / 100)))
             ax1.grid(True, alpha = 0.5)
             ax_secondary = None
-            if ax2:
+            if ax2 is True:
                 ax_secondary = ax1.twinx()
             if len(plot_type_list) == len(data):
-                if ax2 == False:
-                    for i in range(len(plot_type_list)):
-                        current_plot_ax = ax_secondary if ax2 and i == 1 else ax1
-                        current_unit_type = None
-                        if i < len(unit_var_list): # Check if 'i' is a valid index
-                            current_unit_type = unit_var_list[i]
-                        elif unit_var_list: # If 'i' is out of bounds but list is not empty, use the first element
-                            current_unit_type = unit_var_list[0]
-                        else: # If the list is empty, provide a default or None
-                            current_unit_type = "Unit" # Or None, depending on desired behavior
+                for i in range(len(plot_type_list)):
+                    current_plot_ax = ax_secondary if ax2 and i == 1 else ax1
+                    current_unit_type = None
+                    if i < len(unit_var_list): # Check if 'i' is a valid index
+                        current_unit_type = unit_var_list[i]
+                    elif unit_var_list: # If 'i' is out of bounds but list is not empty, use the first element
+                        current_unit_type = unit_var_list[0]
+                    else: # If the list is empty, provide a default or None
+                        current_unit_type = "Unit" # Or None, depending on desired behavior
 
-                        # Safely get min_max for the current plot
-                        current_min_max = None
-                        if i < len(min_max): # Check if 'i' is a valid index
-                            current_min_max = min_max[i]
-                        elif min_max: # If 'i' is out of bounds but list is not empty, use the first element
-                            current_min_max = min_max[0]
-                        if plot_type_list[i] == 'line':
-                            line_plot(data[i], f'{title_var_list[0]}', f'{current_unit_type}', sheets[i], current_min_max, color_type=color_list[i], ax=current_plot_ax)
-                        elif plot_type_list[i] =='box':
-                            Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{current_unit_type}', sheets[i], current_min_max)
+                    # Safely get min_max for the current plot
+                    current_min_max = None
+                    if i < len(min_max): # Check if 'i' is a valid index
+                        current_min_max = min_max[i]
+                    elif min_max: # If 'i' is out of bounds but list is not empty, use the first element
+                        current_min_max = min_max[0]
+                    
+                    print(f"Current max and min: {current_min_max}")
+                    if plot_type_list[i] == 'line':
+                        line_plot(data[i], f'{title_var_list[0]}', f'{current_unit_type}', sheets[i], current_min_max, color_type=color_list[i], ax=current_plot_ax)
+                    elif plot_type_list[i] =='box':
+                        Box_Whisker_preloaded(data[i], f'{title_var_list[0]}', f'{current_unit_type}', sheets[i], current_min_max, ax=current_plot_ax)
                 canvas = FigureCanvasTkAgg(fig, master=plot_area_frame)
                 canvas_widget = canvas.get_tk_widget()
                 canvas_widget.pack()
