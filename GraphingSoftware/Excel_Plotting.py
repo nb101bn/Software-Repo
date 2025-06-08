@@ -1048,7 +1048,7 @@ if __name__ == '__main__':
             type_label = ttk.Label(selection_frame, text='Select Type:')
             type_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
             type_box_values = ['max', 'average']
-            type_box_var = tk.StringVar(value='single')
+            type_box_var = tk.StringVar(value='max')
             type_box = ttk.Combobox(selection_frame, textvariable=type_box_var, value=type_box_values)
             type_box.grid(row=3, column=0, padx=5, pady=5, sticky='w')
             
