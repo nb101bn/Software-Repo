@@ -9,6 +9,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import pickle
 from PIL import Image, ImageGrab
 from tkinter import filedialog
+from scipy.stats import pearsonr
 import collections
 
 
@@ -176,7 +177,7 @@ if __name__ == '__main__':
         def line_plot(data_to_plot : np.array, titlename : str, unittype : str, sheet_names : list, limit : list = None, filter=None, color_type : str = None, ax = None):
             max_data = []
             min_data = []
-            x_positions = np.arange(len(sheet_names))
+            x_positions = np.arange(1, len(sheet_names)+1)
 
             current_ax = ax if ax is not None else plt.gca()
             
@@ -266,6 +267,79 @@ if __name__ == '__main__':
             current_ax.set_xlabel('Time')
             plt.subplots_adjust(bottom=0.15)
             current_ax.set_xticks(range(1, len(sheet_names)+1), sheet_names, fontsize=6, rotation=45)
+        
+        def pearsoncc(data_var1 : np.array, data_var2: np.array, sheet_names_var1 : list, sheet_names_var2):
+
+            maxs_var1_list = []
+            maxs_var2_list = []
+            try:
+                for sheet_names in sheet_names_var1:
+                    filtered_data = data_var1[sheet_names]
+                    if filtered_data.size >0:
+                        max_value = max(filtered_data)
+                        print(f"Variable One: \n max value: {max_value} \n for {sheet_name}")
+                        maxs_var1_list.append(max_value)
+                    else:
+                        print(f"data for {data_var1}, in {sheet_names} doesn't have a size value")
+            except Exception as e:
+                print(f"Error gathering sheets for {data_var1}: {e}")
+                return None
+            except FileNotFoundError as e:
+                print(f"Didn't find a file that matched {sheet_names_var1}: {e}")
+                return None
+            except SyntaxError as e:
+                print(f"Error filtering data: {e}")
+                return None
+            print(f"max values for first variable: {maxs_var1_list}")
+            try:
+                for sheet_names in sheet_names_var2:
+                    filtered_data = data_var2[sheet_names]
+                    if filtered_data.size >0:
+                        max_value = max(filtered_data)
+                        print(f"Variable Two: \n max value: {max_value} \n for {sheet_name}")
+                        maxs_var2_list.append(max_value)
+                    else:
+                        print(f"data for {data_var2}, in {sheet_names} doesn't have a size value")
+            except Exception as e:
+                print(f"Error gathering sheets for {data_var2}: {e}")
+                return None
+            except FileNotFoundError as e:
+                print(f"Didn't find a file that matched {sheet_names_var2}: {e}")
+                return None
+            except SyntaxError as e:
+                print(f"Error filtering data: {e}")
+                return None
+            print(f"max values for first variable: {maxs_var2_list}")
+            if len(maxs_var1_list) == len(maxs_var2_list):
+                r_value, p_value = pearsonr(maxs_var1_list, maxs_var2_list)
+                return r_value, p_value
+            else:
+                len1 = len(maxs_var1_list)
+                len2 = len(maxs_var2_list)
+
+                if len1 < len2:
+                    # maxs_var1_list is smaller, pad it with zeros
+                    # Calculate how many zeros are needed
+                    diff = len2 - len1
+                    # Extend the list with zeros
+                    maxs_var1_list.extend([0] * diff)
+                    print(f"Padded {data_var1} with {diff} zeros.")
+                elif len2 < len1:
+                    # maxs_var2_list is smaller, pad it with zeros
+                    # Calculate how many zeros are needed
+                    diff = len1 - len2
+                    # Extend the list with zeros
+                    maxs_var2_list.extend([0] * diff)
+                    print(f"Padded {data_var2} with {diff} zeros.")
+
+                # Now that the lengths are equal, you can proceed with pearsonr
+                r_value, p_value = pearsonr(maxs_var1_list, maxs_var2_list)
+                return r_value, p_value
+
+            
+            
+
+
 
         def save_plot():
             """
@@ -636,6 +710,158 @@ if __name__ == '__main__':
                 axis_type = tab.axis
                 print('generating plot:')
                 generate_plot_two_vars(tab, run_list, file_list, plot_type_list, tiltle_list, unit_list, plot_area_frame, min_list, max_list, color_type_list, axis_type)
+
+
+            plot_button = ttk.Button(tab, text='Generate Plot',
+                                    command= lambda: plot_button_press())
+            plot_button.grid(row=3, column=2, columnspan=2, padx=10, pady=10, sticky='e')
+            save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
+            save_button.grid(row = 3, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
+
+        def pearson_variable_plot(notebook):
+            
+            def update_selections(parent, frame_one, selection):
+                for widget in frame_one.winfo_children():
+                    widget.destroy() #destroy previous widgets
+                parent.run_menus = []
+                parent.file_menus = []
+                parent.title_menus = []
+                parent.unit_menus = []
+                parent.minimum_menus = []
+                parent.maximum_menus = []
+
+                selection = selection.get()
+                variable = variable.get()
+
+                if selection == 'single':
+                    run_label = ttk.Label(frame_one, text='Select Run:')
+                    run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+                    run_var = tk.StringVar(tab)
+                    run_options = list(all_data.keys())
+                    run_var.trace_add('write', lambda *args: update_variables_two_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var))
+                    run_menu = ttk.Combobox(frame_one, textvariable=run_var, values=run_options)
+                    run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+
+                    var1_label = ttk.Label(frame_one, text='Select File 1:')
+                    var1_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+                    var1_file_var = tk.StringVar(tab)
+                    var1_menu = ttk.Combobox(frame_one, textvariable=var1_file_var, values=[])
+                    var1_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+
+                    var2_label = ttk.Label(frame_one, text='Select File 2:')
+                    var2_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                    var2_file_var = tk.StringVar(tab)
+                    var2_menu = ttk.Combobox(frame_one, textvariable=var2_file_var, values=[])
+                    var2_menu.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+
+                    parent.run_menus.append(run_var)
+                    parent.run_menus.append(run_var)
+                    parent.file_menus.append(var1_file_var)
+                    parent.file_menus.append(var2_file_var)
+
+                elif selection == 'multiple':
+                    run_label_1 = ttk.Label(frame_one, text='Select First Run:')
+                    run_label_1.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+                    run_label_2 = ttk.Label(frame_one, text='Select Second Run:')
+                    run_label_2.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+                    run_var_1 = tk.StringVar(parent)
+                    run_options_1 = list(all_data.keys())
+                    run_options_2 = list(all_data.keys())
+                    run_var_2 = tk.StringVar(parent)
+                    run_var_1.trace_add('write', lambda *args: update_files(parent, run_var_1, var1_menu, var1_file_var))
+                    run_var_2.trace_add('write', lambda *args: update_files(parent, run_var_2, var2_menu, var2_file_var))
+                    run_menu_1 = ttk.Combobox(frame_one, textvariable=run_var_1, values=run_options_1)
+                    run_menu_1.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+                    run_menu_2 = ttk.Combobox(frame_one, textvariable=run_var_2, values=run_options_2)
+                    run_menu_2.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+
+                    var1_label = ttk.Label(frame_one, text='Select File 1:')
+                    var1_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                    var1_file_var = tk.StringVar(tab)
+                    var1_menu = ttk.Combobox(frame_one, textvariable=var1_file_var, values=[])
+                    var1_menu.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
+
+                    var2_label = ttk.Label(frame_one, text='Select File 2:')
+                    var2_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+                    var2_file_var = tk.StringVar(tab)
+                    var2_menu = ttk.Combobox(frame_one, textvariable=var2_file_var, values=[])
+                    var2_menu.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+                    
+                    parent.run_menus.append(run_var_1)
+                    parent.run_menus.append(run_var_2)
+                    parent.file_menus.append(var1_file_var)
+                    parent.file_menus.append(var2_file_var)
+
+
+
+            tab = ttk.Frame(notebook)
+            notebook.add(tab, text='Pearson Value')
+
+            #run_frame = ttk.LabelFrame(tab, text='Run')
+            #run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+
+            selection_frame = ttk.LabelFrame(tab, text='Selection type')
+            selection_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+            
+            file_frame = ttk.LabelFrame(tab, text='Files')
+            file_frame.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+            
+            plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
+            plot_area_frame.grid(row=1, column = 0, columnspan=2, padx=10, pady=10, sticky='nsew')
+            tab.grid_columnconfigure(0, weight=1)
+            tab.grid_columnconfigure(1, weight=1)
+            tab.grid_rowconfigure(1, weight=1)
+            
+            run_type_label = ttk.Label(selection_frame, text='Select Run Type:')
+            run_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            run_type_var = tk.StringVar(value='single')
+            run_type = ttk.Combobox(selection_frame, text='Single Run', textvariable=run_type_var, value=['single', 'multiple'])
+            run_type.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            
+            run_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, run_type_var))
+            tab.axis = False
+            tab.run_menus = []
+            tab.file_menus = []
+
+            run_label = ttk.Label(file_frame, text='Select Run:')
+            run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            run_var = tk.StringVar(tab)
+            run_options = list(all_data.keys())
+            run_var.trace_add('write', lambda *args: update_variables_two_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var))
+            run_menu = ttk.Combobox(file_frame, textvariable=run_var, values=run_options)
+            run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+            tab.run_menus.append(run_var)
+            tab.run_menus.append(run_var)
+
+            var1_label = ttk.Label(file_frame, text='Select File 1:')
+            var1_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            var1_file_var = tk.StringVar(tab)
+            var1_menu = ttk.Combobox(file_frame, textvariable=var1_file_var, values=[])
+            var1_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+            tab.file_menus.append(var1_file_var)
+
+            var2_label = ttk.Label(file_frame, text='Select File 2:')
+            var2_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            var2_file_var = tk.StringVar(tab)
+            var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
+            var2_menu.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            tab.file_menus.append(var2_file_var)
+
+            r_results_label = ttk.Label(plot_area_frame, text='R Value Results')
+            r_results_label.grid(row=0, column=0, padx=10, pady=10, sticky='n')
+            r_results_box = ttk.Entry(plot_area_frame)
+            r_results_box.grid(row=1, column=0, padx=10, pady=10, sticky='n')
+
+            p_results_label = ttk.Label(plot_area_frame, text='P Value Results')
+            p_results_label.grid(row=0, column=1, padx=10, pady=10, sticky='n')
+            p_results_box = ttk.Entry(plot_area_frame)
+            p_results_box.grid(row=1, column=1, padx=10, pady=10, sticky='n')
+
+            def plot_button_press():
+                run_list = [run.get() for run in tab.run_menus]
+                file_list = [file.get() for file in tab.file_menus]
+                print('generating value...')
+                generate_pearson_values(tab, run_list, file_list, r_results_box, p_results_box)
 
 
             plot_button = ttk.Button(tab, text='Generate Plot',
@@ -1133,6 +1359,23 @@ if __name__ == '__main__':
                 print(f"number of plots: {len(plot_type_list)}")
                 print(f"number of data points: {len(data)}")
 
+        def generate_pearson_values(parent, run_var_list, file_var_list, r_box, p_box):
+            data = []
+            sheets = []
+            if len(run_var_list) == len(file_var_list):
+                for run, file in zip(run_var_list, file_var_list):
+                    plot_data = all_data[run][file]
+                    data.append(plot_data)
+                    sheet_name = list(plot_data.keys())
+                    sheets.append(sheet_name)
+            else:
+                print(f"Runs or files are too few \n Number of runs: {len(run_var_list)} \n Number of files: {len(file_var_list)}")
+            r_value_product, p_value_product = pearsoncc(data[0], data[1], sheets[0], sheets[1])
+            r_box.delete(0, tk.END)
+            r_box.insert(0, f'{str(r_value_product):.6}')
+            p_box.delete(0, tk.END)
+            p_box.insert(0, f'{str(p_value_product):.6}')
+
         root = tk.Tk()
         root.title('Data Visulization')
 
@@ -1142,5 +1385,6 @@ if __name__ == '__main__':
         single_variable_plot(notebook)
         double_variable_plot(notebook)
         triple_variable_plot(notebook)
+        pearson_variable_plot(notebook)
 
         root.mainloop()
