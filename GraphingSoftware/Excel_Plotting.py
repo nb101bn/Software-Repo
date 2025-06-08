@@ -803,7 +803,6 @@ if __name__ == '__main__':
                 parent.maximum_menus = []
 
                 selection = selection.get()
-                variable = variable.get()
 
                 if selection == 'single':
                     run_label = ttk.Label(frame_one, text='Select Run:')
@@ -955,7 +954,6 @@ if __name__ == '__main__':
                 parent.maximum_menus = []
 
                 selection = selection.get()
-                variable = variable.get()
 
                 if selection == 'single':
                     run_label = ttk.Label(frame_one, text='Select Run:')
