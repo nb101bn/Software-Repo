@@ -336,8 +336,80 @@ if __name__ == '__main__':
                 r_value, p_value = pearsonr(maxs_var1_list, maxs_var2_list)
                 return r_value, p_value
 
+        def percent_error(control_data : np.array, test_data : np.array, control_sheets : list, test_sheets: list, type, limit = None):
+            control_avg_list = []
+            test_avg_list = []
+            control_max_list = []
+            test_max_list = []
+            try:
+                for sheet_names in control_sheets:
+                    filtered_data = control_data[sheet_names]
+                    if limit:
+                        filtered_data = filtered_data[filtered_data>=limit]
+                    if filtered_data.size >0:
+                        if type == 'average':
+                            average_value = np.mean(filtered_data)
+                            control_avg_list.append(average_value)
+                        elif type == 'max':
+                            max_value = max(filtered_data)
+                            control_max_list.append(max_value)
+                    else:
+                        print(f"data for {control_data}, in {sheet_names} doesn't have a size value")
+            except Exception as e:
+                print(f"Error gathering sheets for {control_data}: {e}")
+                return None
+            except FileNotFoundError as e:
+                print(f"Didn't find a file that matched {control_sheets}: {e}")
+                return None
+            except SyntaxError as e:
+                print(f"Error filtering data: {e}")
+                return None
+
+            try:
+                for sheet_names in test_sheets:
+                    filtered_data = test_data[sheet_names]
+                    if limit:
+                        filtered_data = filtered_data[filtered_data>=limit]
+                    if filtered_data.size >0:
+                        if type == 'average':
+                            average_value = np.mean(filtered_data)
+                            test_avg_list.append(average_value)
+                        elif type == 'max':
+                            max_value = max(filtered_data)
+                            test_max_list.append(max_value)
+                    else:
+                        print(f"data for {test_data}, in {sheet_names} doesn't have a size value")
+            except Exception as e:
+                print(f"Error gathering sheets for {test_data}: {e}")
+                return None
+            except FileNotFoundError as e:
+                print(f"Didn't find a file that matched {test_sheets}: {e}")
+                return None
+            except SyntaxError as e:
+                print(f"Error filtering data: {e}")
+                return None
             
-            
+            total_percent_error = []
+
+            try:
+                if len(control_sheets) == len(test_sheets):
+                    if type == 'average':
+                        for i in range(len(control_avg_list)):
+                            percent_error_value = ((test_avg_list[i]-control_avg_list[i])/control_avg_list[i])*100
+                            total_percent_error.append(percent_error_value)
+                        average_percent_error = np.mean(total_percent_error)
+                        return average_percent_error
+                    if type == 'max':
+                        for i in range(len(control_max_list)):
+                            percent_error_value = ((test_max_list[i]-control_max_list[i])/control_max_list[i])*100
+                            total_percent_error.append(percent_error_value)
+                        average_percent_error = np.mean(total_percent_error)
+                        return average_percent_error
+                else:
+                    print(f"cannot calculate data as the lists are not matching: \n Control has ammount: {len(control_sheets)} \n Test has ammount: {len(test_sheets)}")
+                    return None
+            except Exception as e:
+                print(f"Error trying to calculate percent error: {e}")
 
 
 
@@ -870,6 +942,167 @@ if __name__ == '__main__':
             save_button = ttk.Button(tab, text='Save Plot', command = lambda: save_plot())
             save_button.grid(row = 3, column = 0, columnspan=2, padx=10, pady=10, sticky='w')
 
+        def percent_error_variable_plot(notebook):
+            
+            def update_selections(parent, frame_one, selection):
+                for widget in frame_one.winfo_children():
+                    widget.destroy() #destroy previous widgets
+                parent.run_menus = []
+                parent.file_menus = []
+                parent.title_menus = []
+                parent.unit_menus = []
+                parent.minimum_menus = []
+                parent.maximum_menus = []
+
+                selection = selection.get()
+                variable = variable.get()
+
+                if selection == 'single':
+                    run_label = ttk.Label(frame_one, text='Select Run:')
+                    run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+                    run_var = tk.StringVar(tab)
+                    run_options = list(all_data.keys())
+                    run_var.trace_add('write', lambda *args: update_variables_two_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var))
+                    run_menu = ttk.Combobox(frame_one, textvariable=run_var, values=run_options)
+                    run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+
+                    var1_label = ttk.Label(frame_one, text='Select File 1:')
+                    var1_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+                    var1_file_var = tk.StringVar(tab)
+                    var1_menu = ttk.Combobox(frame_one, textvariable=var1_file_var, values=[])
+                    var1_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+
+                    var2_label = ttk.Label(frame_one, text='Select File 2:')
+                    var2_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                    var2_file_var = tk.StringVar(tab)
+                    var2_menu = ttk.Combobox(frame_one, textvariable=var2_file_var, values=[])
+                    var2_menu.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+
+                    parent.run_menus.append(run_var)
+                    parent.run_menus.append(run_var)
+                    parent.file_menus.append(var1_file_var)
+                    parent.file_menus.append(var2_file_var)
+
+                elif selection == 'multiple':
+                    run_label_1 = ttk.Label(frame_one, text='Select First Run:')
+                    run_label_1.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+                    run_label_2 = ttk.Label(frame_one, text='Select Second Run:')
+                    run_label_2.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+                    run_var_1 = tk.StringVar(parent)
+                    run_options_1 = list(all_data.keys())
+                    run_options_2 = list(all_data.keys())
+                    run_var_2 = tk.StringVar(parent)
+                    run_var_1.trace_add('write', lambda *args: update_files(parent, run_var_1, var1_menu, var1_file_var))
+                    run_var_2.trace_add('write', lambda *args: update_files(parent, run_var_2, var2_menu, var2_file_var))
+                    run_menu_1 = ttk.Combobox(frame_one, textvariable=run_var_1, values=run_options_1)
+                    run_menu_1.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+                    run_menu_2 = ttk.Combobox(frame_one, textvariable=run_var_2, values=run_options_2)
+                    run_menu_2.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+
+                    var1_label = ttk.Label(frame_one, text='Select File 1:')
+                    var1_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+                    var1_file_var = tk.StringVar(tab)
+                    var1_menu = ttk.Combobox(frame_one, textvariable=var1_file_var, values=[])
+                    var1_menu.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
+
+                    var2_label = ttk.Label(frame_one, text='Select File 2:')
+                    var2_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+                    var2_file_var = tk.StringVar(tab)
+                    var2_menu = ttk.Combobox(frame_one, textvariable=var2_file_var, values=[])
+                    var2_menu.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+                    
+                    parent.run_menus.append(run_var_1)
+                    parent.run_menus.append(run_var_2)
+                    parent.file_menus.append(var1_file_var)
+                    parent.file_menus.append(var2_file_var)
+
+
+
+            tab = ttk.Frame(notebook)
+            notebook.add(tab, text='Percent Error')
+
+            #run_frame = ttk.LabelFrame(tab, text='Run')
+            #run_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+
+            selection_frame = ttk.LabelFrame(tab, text='Selection type')
+            selection_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+            
+            file_frame = ttk.LabelFrame(tab, text='Files')
+            file_frame.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+            
+            plot_area_frame = ttk.LabelFrame(tab, text='Plot Display')
+            plot_area_frame.grid(row=1, column = 0, columnspan=2, padx=10, pady=10, sticky='nsew')
+            tab.grid_columnconfigure(0, weight=1)
+            tab.grid_columnconfigure(1, weight=1)
+            tab.grid_rowconfigure(1, weight=1)
+            
+            run_type_label = ttk.Label(selection_frame, text='Select Run Type:')
+            run_type_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            run_type_var = tk.StringVar(value='single')
+            run_type = ttk.Combobox(selection_frame, text='Single Run', textvariable=run_type_var, value=['single', 'multiple'])
+            run_type.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+
+            limit_label = ttk.Label(selection_frame, text='Set Limit:')
+            limit_label.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+            limit_box = ttk.Entry(selection_frame)
+            limit_box.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+
+            type_label = ttk.Label(selection_frame, text='Select Type:')
+            type_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            type_box_values = ['max', 'average']
+            type_box_var = tk.StringVar(value='single')
+            type_box = ttk.Combobox(selection_frame, textvariable=type_box_var, value=type_box_values)
+            type_box.grid(row=3, column=0, padx=5, pady=5, sticky='w')
+            
+            run_type_var.trace_add('write', lambda *args: update_selections(tab, file_frame, run_type_var))
+            tab.axis = False
+            tab.run_menus = []
+            tab.file_menus = []
+
+            run_label = ttk.Label(file_frame, text='Select Run:')
+            run_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+            run_var = tk.StringVar(tab)
+            run_options = list(all_data.keys())
+            run_var.trace_add('write', lambda *args: update_variables_two_vars(tab, run_var, var1_menu, var1_file_var, var2_menu, var2_file_var))
+            run_menu = ttk.Combobox(file_frame, textvariable=run_var, values=run_options)
+            run_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+            tab.run_menus.append(run_var)
+            tab.run_menus.append(run_var)
+
+            var1_label = ttk.Label(file_frame, text='Select File 1:')
+            var1_label.grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            var1_file_var = tk.StringVar(tab)
+            var1_menu = ttk.Combobox(file_frame, textvariable=var1_file_var, values=[])
+            var1_menu.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+            tab.file_menus.append(var1_file_var)
+
+            var2_label = ttk.Label(file_frame, text='Select File 2:')
+            var2_label.grid(row=2, column=0, padx=5, pady=5, sticky='w')
+            var2_file_var = tk.StringVar(tab)
+            var2_menu = ttk.Combobox(file_frame, textvariable=var2_file_var, values=[])
+            var2_menu.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+            tab.file_menus.append(var2_file_var)
+
+            error_results_label = ttk.Label(plot_area_frame, text='Percent Error')
+            error_results_label.grid(row=0, column=0, padx=10, pady=10, sticky='n')
+            error_results_box = ttk.Entry(plot_area_frame)
+            error_results_box.grid(row=1, column=0, padx=10, pady=10, sticky='n')
+
+            def plot_button_press():
+                run_list = [run.get() for run in tab.run_menus]
+                file_list = [file.get() for file in tab.file_menus]
+                type_list = type_box_var.get()
+                limit_list = limit_box.get()
+
+
+                print('generating value...')
+                percent_error_values(tab, run_list, file_list, error_results_box, type_list, limit_list)
+
+
+            plot_button = ttk.Button(tab, text='Generate Plot',
+                                    command= lambda: plot_button_press())
+            plot_button.grid(row=3, column=2, columnspan=2, padx=10, pady=10, sticky='e')
+
         def triple_variable_plot(notebook):
             
             def update_selections(parent, frame, frame_two, selection):
@@ -1375,6 +1608,21 @@ if __name__ == '__main__':
             r_box.insert(0, f'{str(r_value_product):.6}')
             p_box.delete(0, tk.END)
             p_box.insert(0, f'{str(p_value_product):.6}')
+        
+        def percent_error_values(parent, run_var_list, file_var_list, percent_box, type, limit):
+            data = []
+            sheets = []
+            if len(run_var_list) == len(file_var_list):
+                for run, file in zip(run_var_list, file_var_list):
+                    plot_data = all_data[run][file]
+                    data.append(plot_data)
+                    sheet_name = list(plot_data.keys())
+                    sheets.append(sheet_name)
+            else:
+                print(f"Runs or files are too few \n Number of runs: {len(run_var_list)} \n Number of files: {len(file_var_list)}")
+            PE = percent_error(data[0], data[1], sheets[0], sheets[1], type, limit)
+            percent_box.delete(0, tk.END)
+            percent_box.insert(0, f'{str(PE):.6}%')
 
         root = tk.Tk()
         root.title('Data Visulization')
@@ -1386,5 +1634,6 @@ if __name__ == '__main__':
         double_variable_plot(notebook)
         triple_variable_plot(notebook)
         pearson_variable_plot(notebook)
+        percent_error_variable_plot(notebook)
 
         root.mainloop()
