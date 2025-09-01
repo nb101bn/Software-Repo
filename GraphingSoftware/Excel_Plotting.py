@@ -1034,17 +1034,12 @@ if __name__ == '__main__':
             else:
                 print(f"Runs or files are too few \n Number of runs: {len(run_var_list)} \n Number of files: {len(file_var_list)}")
             min_max = []
-            print(f"All Minimums: {min_list}")
-            print(f"All Maximums: {max_list}")
+            
             if len(min_list) == len(max_list):
                 for mins, maxs in zip(min_list, max_list):
-                    print(f"mins {mins}")
-                    print(f"maxs {maxs}")
                     box = [mins, maxs]
                     box.sort()
-                    print(f"ordered pair: {box}")
                     min_max.append(box)
-                print(f'Mins and Maxs ordered pairs: {min_max} \n Number of ordered pairs: {len(min_max)}')
             for widget in plot_area_frame.winfo_children():
                 widget.destroy()
             plt.close('all')
@@ -1076,7 +1071,6 @@ if __name__ == '__main__':
                     elif min_max: # If 'i' is out of bounds but list is not empty, use the first element
                         current_min_max = min_max[0]
                     
-                    print(f"Current max and min: {current_min_max}")
                     if plot_type_list[i] == 'line':
                         line_plot(data[i], f'{title_var_list[0]}', f'{current_unit_type}', sheets[i], current_min_max, color_type=color_list[i], ax=current_plot_ax)
                     elif plot_type_list[i] =='box':
